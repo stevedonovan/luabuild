@@ -1,0 +1,495 @@
+                                  README_ltcl
+
+ltcl
+
+   Simple binding of the Tcl interpreter to Lua. Use by requiring "ltcl".
+
+   Author: Gunnar Zötl <gz@tset.de>, 2010, 2011.
+   Released under MIT/X11 license. See file LICENSE for details.
+
+Constructor
+
+   tcl = ltcl.new()
+          creates and initializes a new Tcl interpreter object
+
+Tcl extensions
+
+   ltcl registers a function 'lua' with Tcl that allows Tcl to call Lua
+   functions by name. It is called from Tcl like this:
+   lua funcname [args]
+
+Methods
+
+   ltcl methods are called using method syntax on the Tcl interpreter
+   object returned by ltcl.new().
+
+   tcl:eval([flags,] str)
+          evaluates a string as Tcl skript. The skripts return value is
+          converted to a Lua type. The flags are optional.
+
+   tcl:call([flags,] fname, ...)
+          calls function fname with args in the Tcl interpreter. If one of
+          the arguments is an object created by a call to tcl:vals(), all
+          of its members will be inserted into the argument list. The
+          skripts return value is converted to a Lua type. The flags as a
+          first argument are optional, mostly you will not want to use
+          them.
+
+   tcl:callt([flags,] fname, params)
+          calls function fname with the members of the table params as
+          arguments. The elements of the parameter table from 1 to #params
+          will be passed as arguments to the called function. If one of
+          the elements is an object created by a call to tcl:vals(), all
+          of its members will be inserted into the argument list. The
+          skripts return value is converted to a Lua type. The flags as a
+          first argument are optional, mostly you will not want to use
+          them.
+
+   tcl:makearglist(params)
+          returns an argument list suitable for passing into tcl:callt(),
+          with the following properties: all elements of params from 1 to
+          #params are at the beginning of the resukt table, then come the
+          key=value pairs, for each of which first the key prepended by a
+          '-' is inserted, and then the value. So tcl:makearglist
+          {1,2,a='b',3} will return {1,2,3,'-a','b'}.
+
+   tcl:getvar(var, flags [, flags])
+          returns the value of a variable in the Tcl interpreter. The
+          value is converted to a Lua type. Array elements can also be
+          accessed through this method using the Tcl syntax for accessing
+          arrays, so in order to access index 'c' of an array 'arr', you
+          would call tcl:getvar('b(c)'). This behaves like
+          tcl:getarray('arr', 'c'). If the variable is not defined in the
+          Tcl interpreter, this method throws an error.
+
+   tcl:getarray(var, idx [, flags])
+          returns the value of the array var at index idx in the Tcl
+          interpreter. var must refer to an array. The value is converted
+          to a Lua type. If var dows not refer to a Tcl array, or the
+          index idx is not resent in the array, an error is thrown. If idx
+          is nil, this method behaves like tcl:getvar(var [,flags]).
+
+   tcl:setvar(var, val [, flags])
+          sets the value of the variable var to the new value val. val
+          will be converted to a Tcl type. Returns the value the variable
+          was set to. If var does not refer to an array if val is not nil,
+          an error is thrown.
+
+   tcl:setarray(var, idx, val [, flags])
+          sets the value of the array var at index idx to value val. var
+          must refer to an array. The value is converted to a Tcl type.
+          Returns the value the array element with the index idx was set
+          to. If var does not refer to an array, when idx is not nil, an
+          error is thrown. If idx is nil, this method behaves like
+          tcl:setvar(var, val [, flags]).
+
+   tcl:unsetvar(var [, flags])
+          unsets the variable var in the Tcl interpreter. This removes the
+          variable from the Tcl interpreter.
+
+   tcl:unsetarray(var, idx [, flags])
+          unsets the element with the index idx from the array var. This
+          removes the index and the element from the array. If you want to
+          remove the entire array, use tcl:unsetvar().
+
+   tcl:tracevar(name1, name2, flags, func)
+          registers a trace function for variable access. See section
+          "Tracing Tcl variable access" for more information.
+
+   tcl:register(fname, luafunc)
+          registers the Lua function luafunc under the name fname with the
+          Tcl interpreter.
+
+   tcl:unregister(fname)
+          removes the Lua function with the name fname from the Tcl
+          interpreter
+
+   tcl:toutf8(str [, encoding])
+          converts a string from the optionally specified local encoding
+          to utf8. This method throws an error if the encoding is
+          specified but is not an encoding Tcl recognizes. Default for
+          encoding is the current system encoding. You should probably use
+          a native utf8 library for Lua, as using this function involves
+          copying the string to Tcl, then converting it, then copying the
+          result back to Lua. For short strings and if it is not used
+          permanently, this should be fast enough, though.
+
+   tcl:fromutf8(str [, encoding])
+          converts a string from utf8 to the optionally specified local
+          encoding. This method throws an error if the encoding is
+          specified but is not an encoding Tcl recognizes. Default for
+          encoding is the current system encoding. Also see the comments
+          for lua_toutf8.
+
+   tcl:getencs()
+          returns a list of encoding names usable with fromutf8 and
+          toutf8. These are names of builtin and loadable Tcl character
+          encodings.
+
+   tcl:vals(...)
+          returns its arguments packed into a tuple that can only be used
+          as arguments for the tcl:call* functions. This is intended for
+          multiple arguments to options for Tcl commands. The is no other
+          place this can be used. Obacht: as long as there is such a tuple
+          object in existence within a Lua state, the Tcl interpreter
+          object can not be deleted when the corresponding Lua Tcl
+          interpreter object is garbage collected.
+
+   tcl:checkflags(flags[, flag1, ... flagn])
+          for each flag from flag 1 onwards return the flag if it is set
+          in flags, or nil if it is not set. Flag1... may be any integer
+          value, even a combination of flags. A flag is considered set if
+          flags & flagx == flagx. Returns nothing if no flagn was passed
+          as argument.
+
+Conversion of values
+
+  Lua -> Tcl
+
+   The Lua types string and boolean are converted to equivalent Tcl types.
+   Note however, that strings in Tcl are always Utf8 encoded!
+
+   The Lua number type is converted to the Tcl int type, if it is integral
+   and fits into an int, and to double otherwise.
+
+   The Lua type table is converted to a Tcl list. Thus only the array part
+   of a table is converted, from 1 to the last element of the table as
+   returned by the # operator.
+
+   The Lua nil is converted to an empty string. There is no nil in Tcl (at
+   least I have not yet found one).
+
+   Everything else creates an error.
+
+  Tcl -> Lua
+
+   The Tcl type boolean is converted to a Lua number. I initially had it
+   converted to Lua boolean values, but between Tcl 8.4 and 8.5, something
+   changed that caused booleans to be returned as integers from Tcl to
+   Lua. So in order to minimise pains when developing for both Lua+Tcl8.4
+   and Lua+Tcl8.5, or migrating from the one to the other, I decided to
+   always convert boolean values to numbers. Note that this means that
+   when you receive a boolean value from Tcl, you will have to explicitly
+   compare it to 0 or 1.
+
+   The Tcl types int and double are converted to a Lua number.
+
+   The Tcl types bytearray and string are converted to Lua strings. Note
+   that Tcl strings are always Utf8 encoded!
+
+   The Tcl type list is converted to a Lua table, with the elements being
+   stored at consecutive indices within the array part of the table.
+
+   Everything else, including unknown or unspecified types, is converted
+   to a Lua string.
+
+   Note also that there is no special support for converting Tcl's arrays.
+   You must handle them using the setarray and getarray methods.
+
+   Note that the type for values in Tcl is often not known and thus values
+   might be converted to string that you expect to be something else. This
+   has to do with how and especially when Tcl determines the type of a
+   value. Normally this should not pose significant problems as in an
+   arithmetic context Lua treats a string containing a number just like a
+   number, but for comparisons this does make a difference.
+
+  Beware
+
+   A conversion Lua -> Tcl -> Lua might not always yield the same result.
+   The textual representation value should be the same, but the type may
+   have changed. An example:
+
+   i = ltcl.new() i:setvar("x", 1) -> type is number v=i:getvar("x") ->
+   type is number v=i:eval("expr $x + 1") -> type is number
+   v=i:getvar("x") -> type is number v=i:eval('expr $x') -> type is number
+   v=i:getvar("x") -> type is now string!
+
+   However, this does not always happen. This stems from how Tcl
+   determines the types of values at runtime. Whenever the Tcl type is
+   unknown, on return to Lua it will be converted to a string. So, if you
+   expect a number from Tcl, it would be prudent to call tonumber() on
+   what you received.
+
+Getting and setting values
+
+   You access variables in the Tcl interpreter by the get* and set*
+   methods. get and set work straightforward, you can read the value of a
+   varible (get) or set it to a new value (set). The getarray and setarray
+   methods deal with array values, the first parameter must refer to an
+   array on the Tcl side. The second parameter is an index within this
+   array.
+
+   For all these methods, there is an optional last parameter for flags.
+
+  Valid flags
+
+   ltcl.GLOBAL_ONLY
+          Under normal circumstances the procedures look up variables as
+          follows. If a procedure call is active in interp, the variable
+          is looked up at the current level of procedure call. Otherwise,
+          the variable is looked up first in the current namespace, then
+          in the global namespace. However, if this bit is set in flags
+          then the variable is looked up only in the global namespace even
+          if there is a procedure call active. If both TCL_GLOBAL_ONLY and
+          TCL_NAMESPACE_ONLY are given, TCL_GLOBAL_ONLY is ignored.
+
+   ltcl.NAMESPACE_ONLY
+          If this bit is set in flags then the variable is looked up only
+          in the current namespace; if a procedure is active its variables
+          are ignored, and the global namespace is also ignored unless it
+          is the current namespace.
+
+   ltcl.APPEND_VALUE
+          If this bit is set then newValuePtr or newValue is appended to
+          the current value instead of replacing it. If the variable is
+          currently undefined, then the bit is ignored. This bit is only
+          used by the set* methods.
+
+   ltcl.LIST_ELEMENT
+          If this bit is set, then newValue is converted to a valid Tcl
+          list element before setting (or appending to) the variable. A
+          separator space is appended before the new list element unless
+          the list element is going to be the first element in a list or
+          sublist (i.e. the variable's current value is empty, or contains
+          the single character ``{'', or ends in `` }''). When appending,
+          the original value of the variable must also be a valid list, so
+          that the operation is the appending of a new list element onto a
+          list.
+
+Tracing Tcl variable access
+
+   ltcl provides a means to trace Tcl variable accesses. This is done with
+   the method tcl:tracevar(name, idx, flags, func). name is the Name of
+   the variable to trace. idx is an index into an array referenced by
+   name. If idx is not nil, only accesses to that particular index within
+   the array referred to va the variable name will be traced. Obviously,
+   for this to work name must refer to a Tcl array if idx is not nil,
+   otherwise if idx is nil, name can refer to any Tcl variable. flags are
+   used to tell ltcl which accesses should be traced, see below for a list
+   of valid flags. func is a Lua function that is called upon variable
+   access. You can register multiple traces per variable. These will then
+   be called in reverse order of registering, so the last registered trace
+   function will be called first.
+
+  Valid flags for tracevar()
+
+   ltcl.GLOBAL_ONLY
+   ltcl.NAMESPACE_ONLY
+          these flags have the same meaning as when accessing Tcl
+          variables using the set*/get* methods.
+
+   ltcl.TRACE_READS
+          set to trace read accesses. This means any read access from
+          within Tcl, and also through the tcl:get* methods. If the traced
+          variable is an array, and the index passed to the tracevar
+          method is nil, read accesses to any of its elements will be
+          traced, and the referenced index will be passed to the trace
+          function.
+
+   ltcl.TRACE_WRITES
+          set to trace write accesses. This means any write access from
+          within Tcl, and also through the tcl:set* methods. If the traced
+          variable is an array, and the index passed to the tracevar
+          method is nil, write accesses to any of its elements will be
+          traced, and the referenced index will be passed to the trace
+          function.
+
+   ltcl.TRACE_UNSETS
+          set to trace variable unsets. After a variable is unset, any
+          trace on that variable is automatically unregistered by the Tcl
+          interpreter.
+
+   ltcl.TRACE_ARRAY
+          set to trace any accesses to arrays using the Tcl array
+          function.
+
+  The trace function
+
+   The trace function is a Lua function with the signature
+   func(name, idx, flags) -> errmsg or nil
+
+   This function is called whenever the variable is accessed in a way that
+   is specified in the flags argument to the tracevar method. name is the
+   name of the accessed variable, idx is an index into name if name is an
+   array, or nil. flags specify how the variable was actually accessed.
+   You can find out the exact method of access using the tcl:checkflags()
+   method. flags can be any one of ltcl.TRACE_READ or ltcl.TRACE_WRITE,
+   plus ltcl.TRACE ARRAY, if the access was made through the Tcl array
+   function, and ltcl.GLOBAL_ONLY or ltcl.NAMESPACE_ONLY. If within your
+   trace function you want to access the traced Tcl variable, you must
+   pass these last two flags to that access.
+
+   Traces using ltcl.TRACE_ARRAY may trigger multiple calls to the trace
+   function, for example
+   tcl:tracevar('z', nil, ltcl.TRACE_WRITE + ltcl.TRACE_ARRAY, tracefunc)
+   tcl:call('array', 'set', 'z', {'x', 1})
+
+   will first trigger a call for the creation of the array with idx set to
+   nil, and then another call for the addition of the element 1 at index
+   'x'.
+
+   The trace function should return nil, if there was no error. If an
+   error occurred, the function can return a string, which will then be
+   the message for the error raised by Tcl.
+
+   During the execution of the trace function, all traces on the variable
+   that triggered the trace will temporarily suspended. So you do not need
+   to worry about causing recursion by accessing the variable.
+
+  Callback timing
+
+   On read accesses, the trace function is invoked just before the value
+   is returned. It may set the variable to a different value, and this new
+   value will be returned.
+
+   On write accesses, the trace function is called after the new value has
+   been set but before it is returned. If it modifies the variable, the
+   new value set by the trace function is returned. This may also be used
+   to create read-only variables, but you will have to reset the variable
+   to the original value in the trace function.
+
+   When array tracing has been specified, the trace function will be
+   invoked at the beginning of the array command implementation, before
+   any of the operations like get, set, or names have been invoked. The
+   trace procedure can modify the array elements with the tcl:setvar and
+   tcl:setarray methods.
+
+   When unset tracing has been specified, the trace function will be
+   invoked whenever the variable is destroyed. The traces will be called
+   after the variable has been completely unset.
+
+Calling Tcl functions from Lua
+
+   There are 3 ways of calling into Tcl. The simplest way is to just pass
+   a skript to the interpreter by means of the eval method. The Skript is
+   then evaluated and the result is returned to Lua. This can in fact
+   evaluate complete skripts, but only complete skripts, as there is no
+   means to pass partial skripts to the interpreter from Lua. The optional
+   flags parameter may take any or the sum of these values.
+
+   Another way that can only call one function is the method call. Its
+   first argument (after the optional flags) is the name of he function to
+   call, and must be a string. The following arguments are the arguments
+   to pass to the function. In this case, the arguments are converted from
+   their Lua values to Tcl values. If one of the arguments is an object
+   returned by tcl:vals(), all of its members will be inserted into the
+   argument list.
+
+   The third option is to use callt. This method receives the arguments to
+   the function call in a table. Apart from that, it behaves just like
+   tcl:call().
+
+   Tcl functions may receive option/value pairs as arguments. In order to
+   provide for a neater way to specify these from Lua, the method
+   tcl:makearglist() is provided. So, if you want to call a function
+   reveiving options from Lua, you could do it like this:
+   tcl:callt(tcl:makearglist {option=value, ...})
+
+   Beware that positional elements of the argument table passed to
+   tcl:makearglist will always be at the beginning of the resulting table.
+   Also, only the positionl elements from 1 to #table will be inserted
+   into the result table, so tcl:makearglist{1,2,3,[99]=4} will probably
+   not do what you want.
+
+  Valid flags
+
+   ltcl.EVAL_GLOBAL
+          If this flag is set, the script is processed at global level.
+          This means that it is evaluated in the global namespace and its
+          variable context consists of global variables only (it ignores
+          any Tcl procedures that are active).
+
+Calling Lua functions from Tcl
+
+   There are also two ways to call back into Lua from Tcl. One is to
+   register the function you want to call with Tcl. See the next section
+   on how to do that.
+
+   The other way is an additional function Tcl registers with Tcl that
+   allows for calls back to the Lua state. This allows Tcl to call Lua
+   functions by name, passing args and receiving return values.The
+   arguments are converted from Tcl to Lua types, and the return value is
+   converted from Lua to Tcl type. The function is always looked up at the
+   global level, that is, from the global variable table. Local functions
+   can not be called in this manner. If you want to access local functions
+   from Tcl, see the next section. Calling a Lua function from Tcl is as
+   easy as
+   lua funcname [args]
+
+   for example:
+   lua print "Hello from Tcl"
+
+Registering Lua functions
+
+   Lua functions can be registered as extensions with the Tcl interpreter
+   using the tcl:register() method. When calling the function from Tcl,
+   any arguments are converted to their respective Lua types, and on
+   return the result is converted to a Tcl type. Just keep in mind that
+   the types you get from Tcl may not necessarily be what you expect them
+   to be. This is because value types in Tcl are mostly left unset on
+   object creation, which will cause them to be converted to strings on
+   the Lua side.
+
+   A Lua function to be registered with the Tcl interpreter may take any
+   number of arguments, but can only return one result. It may of course
+   return as much as it likes, but only the first return value is returned
+   to Tcl. If the Lua function returns nothing, an empty Tcl object is
+   returned to Tcl, just like Tcl functions do.
+
+   The registered Lua functions can be used from Tcl like any other Tcl
+   function.
+
+Error handling
+
+   All errors are propagated back to Lua. When an error occurs while doing
+   anything with Tcl, a Lua error is thrown. You can catch such an error
+   in the usual manner using pcall. The error message in such cases is the
+   message Tcl generates, the location is the ltcl method called. This
+   also holds when Tcl calls a Lua function that throws an error, this
+   error will be propagated to Tcl, and from there back to Lua. If there
+   is an error handler on the Tcl side, it will be able to catch such
+   errors from Lua.
+
+Misc stuff
+
+   The ltcl module exports 3 additional constants: _TCLVERSION, _VERSION
+   and _REVISION. _TCLVERSION holds the version of the Tcl interpreter.
+   _VERSION and _REVISION are version information for the ltcl module. As
+   long as the _VERSION number is the same, there have been no changes to
+   the module API. Bugfix releases only increment the _REVISION number.
+   These constants are also available through any created Tcl interpreter
+   object.
+
+   The binding should just work as expected, no magical surprises
+   intended. Only 3 "magical" things happen:
+     * the interpreter is initialized upon creation
+     * the set*/get* methods add a flag to return error messages to the
+       caller
+     * hashtable treatment with callt
+
+   For implementation details look at the source code.
+
+   Finally, some of the text in this document is shamelessly ripped from
+   the Tcl docs.
+
+References
+
+   I worked with Tcl/Tk 8.4 and 8.5. The relevant documentation is here:
+
+   for Tcl 8.4 at http://www.tcl.tk/man/tcl8.4/TclCmd/contents.htm
+   and its C API at http://www.tcl.tk/man/tcl8.4/TclLib/contents.htm
+   for Tcl 8.5 at http://www.tcl.tk/man/tcl8.4/TclCmd/contents.htm
+   and its C API at http://www.tcl.tk/man/tcl8.4/TclLib/contents.htm
+
+   Also relevant is of course the Lua reference manual, available at
+   http://www.lua.org/manual/5.1/
+   and Programming in Lua, 2nd edition, available at your bookstore.
+
+   The complete Tcl/Tk documentation for all versions is available at
+   http://www.tcl.tk/doc/
+
+Disclaimer
+
+   I don't know sh*t about Tcl. Everything I know I found out while
+   implementing this. I may be completely off at some points. If so,
+   please let me know.

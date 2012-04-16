@@ -1,0 +1,16 @@
+local libs = 'curses '
+local curses = find.include_path {'curses.h','ncurses.h'}
+if curses then
+    local _,name = path.splitpath(curses)
+    defs = name == 'curses.h' and 'HAVE_CURSES_H' or 'HAVE_NCURSES_H'
+elseif find.include_path {'ncurses/curses.h'} then
+    defs = 'HAVE_NCURSES_CURSES_H'
+else
+   quit "luaposix curses: cannot find curses.h; needs ncurses-dev/-devel"
+end
+
+luabuild.lua 'curses'
+
+return c.library {LIBDIR..'curses_c', src='lcurses', libs = libs, defines = defs,
+    args = ARGS
+}

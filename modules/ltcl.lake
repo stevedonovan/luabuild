@@ -1,0 +1,17 @@
+if not find.include_path 'tcl.h' then
+    incs = find.include_path {'tcl8.4/tcl.h','tcl8.5/tcl.h'}
+    if not incs then
+        quit "ltcltk: you have to install tcl/tk development files"
+    end
+    incs = path.splitpath(incs)
+    _, libs = path.splitpath(incs)
+else
+    libs = 'tcl'
+end
+
+luabuild.lua 'ltk'
+luabuild.test 'samples/ltcltest.lua'
+
+return c.library {LIBDIR..'ltcl',src='ltcl',libs = libs,
+    args = ARGS,incdir={LUADIR,incs}
+}

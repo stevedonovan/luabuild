@@ -1,0 +1,503 @@
+                                   README_ltk
+
+ltk
+
+   Simple binding of the Tk toolkit to Lua. Use by requiring "ltk".
+
+   Author: Gunnar Zötl <gz@tset.de>, 2010, 2011.
+   Released under MIT/X11 license. See file LICENSE for details.
+
+Introduction
+
+   This is a thin layer over Tcl/Tk, intended to be usable in a manner
+   that allows for everything the standard Tcl/Tk combo can do, while
+   providing just enough magic to make it usable in a reasonably intuitive
+   fashion from Lua.
+
+   The functions that create widgets receive their arguments as a table.
+   Tk Widgets are wrapped into Lua tables, which are stored internally in
+   the ltk module. Only the Tk widget id is returned to the callse. Lua
+   functions are supported as event handling functions for Tk widgets. Any
+   necessary registering and unregistering of with the interpreter is
+   handled transparently by the ltk state.
+
+   As Lua can not call strings without some additional magic, widget
+   commands are created by means of ltk.wcmd. This creates a function
+   that, wenn called, invokes the widget command specified as the first
+   argument passed to the function. Just like the functions that create
+   widgets, widget command functions receive their arguments in a table.
+
+   Function arguments to widget creation or widget commands can be
+   specified in 2 ways: most of the time you will just specify a regular
+   Lua function, which will then be called without arguments or with
+   arguments as defined in the documentation for the option the function
+   is passed to. Then there is also the bind-style function specification,
+   where you may provide parameters to be substituted at function call
+   time. For this you specify a table, where the first entry is the table,
+   and all following entries are arguments that will be passed to the
+   function at call time. See the documentation of the Tk bind function
+   for a list of available parameters.
+
+   The ltk wrappers for the Tk functions also receive their arguments in a
+   table. In a deviation from the above, the ltk utility functions receive
+   standard argument lists, not tables.
+
+   The simple rule thus is: widget creation, widget commands and Tk
+   functions receive their arguments in a table, ltk utility functions
+   take normal argument lists.
+
+Initializing the ltk state
+
+   Requiring this module creates a Tcl interpreter object, loads the Tk
+   toolkit into it, and initializes it. After that, all things Tk are
+   available from the module ltk.
+
+Widgets
+
+   Widgets are returned by the ltk widget creation functions as strings.
+   Widget commands can be created through ltk.wcmd, which returns a
+   function that invokes the widget commands. Arguments for widget
+   creation are supplied in a table, which can contain both an array and a
+   hash part. The members of the array part will be at the start of the
+   argument list, the members of the hash part after that. The keys of the
+   hash part are inserted with a leading '-' into the argument list. You
+   never supply the widget name as in Tk, ltk takes care of this
+   automatically. Basically, creating a widget looks like this:
+   b=ltk.button { text="Ok" }
+
+   For reference, this is the ltk counterpart of the following piece of
+   Tcl:
+   button .b -text OK
+
+   The widget commands created by ltk.wcmd are called in exactly the same
+   way, using a table for its arguments, so after the above you could do:
+   bcmd = ltk.wcmd(b) bcmd {'cget', 'text'}
+
+   Alternatively you can call the widget command directly through
+   ltk.wcmd, which also receives the the widget command and its arguments
+   in a table:
+   ltk.wcmd(b){'cget', 'text'}
+
+   If a widget should be created within another widget, the parent widget
+   must be provided as a separate first argument to the widget creation
+   function, like so:
+   l = ltk.labelframe {text = "Example"} b = ltk.button(l) {text =
+   "Hallo"}
+
+   All widgets are internally stored as Lua tables, that keep track of the
+   housekeeping stuff. A <Destroy> event handler is registered for the
+   widgets in order to do necessary cleanup work when the widget is
+   destroyed. You can still register your own <Destroy> handler, this will
+   not interfere with the housekeeping.
+
+   Also, there are wrapper functions for all supported widgets of Tk 8.4,
+   which do additional magic, for example for function arguments. For the
+   implemented widgets, arguments and options are as per Tk documentation,
+   except where noted otherwise below.
+
+Supported Tk widgets
+
+   See the Tk documentation on how to use these. The widgets starting with
+   ttk_ map to the Tk 8.5 ttk:: widgets, so for example ltk.ttk_button is
+   the Tk 8.5 widget ttk::button. These widgets are of course only
+   available with Tk8.5 and later, on earlier versions attempts to create
+   these widgets will throw an error.
+
+   ltk.bitmap{}
+          not directly instantiable. Returned by the ltk.image function.
+
+   ltk.button{}
+
+   ltk.canvas{}
+
+   ltk.checkbutton{}
+
+   ltk.entry{}
+
+   ltk.frame{}
+
+   ltk.label{}
+
+   ltk.labelframe{}
+
+   ltk.listbox{}
+
+   ltk.menu{}
+
+   ltk.menubutton{}
+
+   ltk.message{}
+
+   ltk.panedwindow{}
+
+   ltk.photo{}
+          not directly instantiable. Returned by the ltk.image function.
+
+   ltk.radiobutton{}
+
+   ltk.scale{}
+
+   ltk.scrollbar{}
+
+   ltk.spinbox{}
+
+   ltk.text{}
+
+   ltk.toplevel{}
+
+   ltk.ttk_button{}
+
+   ltk.ttk_checkbutton{}
+
+   ltk.ttk_combobox{}
+
+   ltk.ttk_entry{}
+
+   ltk.ttk_frame{}
+
+   ltk.ttk_label{}
+
+   ltk.ttk_labelframe{}
+
+   ltk.ttk_menubutton{}
+
+   ltk.ttk_notebook{}
+
+   ltk.ttk_panedwindow{}
+
+   ltk.ttk_progressbar{}
+
+   ltk.ttk_radiobutton{}
+
+   ltk.ttk_scale{}
+
+   ltk.ttk_scrollbar{}
+
+   ltk.ttk_separator{}
+
+   ltk.ttk_sizegrip{}
+
+   ltk.ttk_treeview{}
+
+Tcl/Tk and utility functions
+
+   There are three different kinds of functions. Not that you would
+   notice, but this is to help you find the documentation for each. Mostly
+   there are wrappers for the Tk functions, which are obviously documented
+   in the Tk documentation. Then there are wrappers for a very few Tcl
+   functions, that seem immediately useful in conjunction with ltk, these
+   are documented in the Tcl documentation. And finally there are a few
+   ltk specific utility functions, these are documented below.
+
+  Supported Tcl/Tk functions
+
+   See the Tcl/Tk documentation on how to use these. Only things specific
+   to ltk are documented here.
+
+   ltk.after{}
+          Tcl after function. The function may only be a simple Lua
+          function, not the bind-style notation.
+
+   ltk.bell()
+
+   ltk.bind{}
+
+   ltk.bindtags{}
+
+   ltk.clipboard{}
+
+   ltk.console{}
+
+   ltk.destroy{}
+
+   ltk.event{}
+
+   ltk.focus{}
+
+   ltk.font{}
+
+   ltk.grab{}
+
+   ltk.grid{}
+
+   ltk.image{}
+          If arg#1 to the image function is 'create', then arg#2 is he
+          type to create (bitmap or photo), and arg#3 is a table with the
+          options for this create command. The function then returns a
+          bitmap or photo widget, which can be called as any other widget.
+          In all other cases this works like a regular ltk function.
+          The returned value is not really a widget, it does not have any
+          autodestroy magic. You must dispose of it manually using
+          image('delete'...). That is because in Tk these images can not
+          have event handlers.
+
+   ltk.lower{}
+
+   ltk.option{}
+
+   ltk.pack{}
+
+   ltk.place{}
+
+   ltk.raise{}
+
+   ltk.selection{}
+
+   ltk.send{}
+          for ltk.send, the option displayof can not be given as a
+          name/value pair but must explicitely be specified as ...,
+          '-displayof', winid, ...
+
+   ltk.tk{}
+
+   ltk.tk_bisque{}
+
+   ltk.tk_chooseColor{}
+
+   ltk.tk_chooseDirectory{}
+
+   ltk.tk_dialog{title, text, bitmap, default, string [,...]}
+          The first argument to the Tk function tk_dialog (window in the
+          Tk docs) is generated by this function, so you must not specify
+          it.
+
+   ltk.tk_focusFollowsMouse{}
+
+   ltk.tk_focusNext{}
+
+   ltk.tk_focusPrev{}
+
+   ltk.tk_getOpenFile{}
+
+   ltk.tk_getSaveFile{}
+
+   ltk.tk_menuSetFocus{}
+
+   ltk.tk_messageBox{}
+
+   ltk.tk_optionMenu{var-or-func, value [,...]}
+          The first argument to the Tk function tk_optionMenu (w in the Tk
+          docs) is generated by this function, so you must not specify it.
+          The function optionMenu() returns 2 widgets, the first being the
+          optionMenu button to be used for layout purposes, the second is
+          the created menu which you can use to alter the option menu
+          itself. If the argument var-or-func is a string, then when the
+          option of the optionMenu is changed, the variable will be set to
+          the new value in the Tcl interpreter. This is the standard
+          behavious from Tk. You can access the new value through
+          ltk.var.varname. If it is a function, then it must take the
+          following parameters:
+          func(optionmenubutton, menu, value)
+          This function is called, when the option of the optionMenu is
+          changed. The arguments are then set to the menubutton widget
+          (return value 1 from tk_optionmenu()), and the new value.
+
+   ltk.tk_popup{}
+
+   ltk.tk_setPalette{}
+
+   ltk.tk_textCopy{}
+
+   ltk.tk_textCut{}
+
+   ltk.tk_textPaste{}
+
+   ltk.tkwait{}
+
+   ltk.ttk_style{}
+          This is the Tk 8.5 ttk::style function. The scripts passed as
+          arguments to the "theme create" and "theme settings" subcommands
+          can only be simple Lua functions, not the bind-style notation.
+          This function is only available with Tk 8.5.
+
+   ltk.ttk_vsapi{}
+          This function is only available with Tk 8.5.
+
+   ltk.update{}
+          Tcl update function for manual event processing
+
+   ltk.winfo{}
+
+   ltk.wm{}
+
+  Additional utility functions
+
+   These are additional functions provided by ltk, which aid in the
+   Lua<->Tcl interaction. These functions receive standard argument lists!
+
+   ltk.addpackage(pkg)
+          loads Tcl/Tk package "pkg" into the Tcl interpreter used by the
+          ltk module.
+
+   ltk.addtkwidget(wtype[, cfix[, wfix[, wname]]])
+          adds a new tk widget creation command to the ltk module. See
+          "Adding Tk widgets" below.
+
+   ltk.exit()
+          exits the Lua/ltk application. You should call this instead of
+          os.exit as it does additional housekeeping.
+
+   ltk.fromutf8(string[, encoding])
+          ltcl fromutf8 method, converts a string from utf8 to the
+          optionally specified local encoding. See README_ltcl for
+          details.
+
+   ltk.mainloop()
+          Provides a main event loop. Does not return. This also registers
+          a <Destroy> event handler for the default toplevel window (.) to
+          exit the application when the main window is destroyed.
+
+   ltk.toutf8(string [, encoding])
+          ltcl toutf8 method, converts a string from the optionally
+          specified local encoding to utf8. See README_ltcl for details.
+
+   ltk.vals(...)
+          ltcl vals method, returns its arguments packed into a tuple that
+          can only be used as a value for key/value pairs in argument
+          tables for widgets or widget commands. The is no other place
+          this object is usable. Thus, if a Tk widget would receive an
+          option "-pos x y", the ltk argument table would contain the
+          entry "pos=ltk.vals(x,y)".
+
+   ltk.widgettype(widget)
+          Returns the type of the widget, or nil, if the argument is not a
+          ltk widget.
+
+   ltk.wcmd(widget)
+          Creates the widget command for the widget specified as first
+          argument. Note that the created widget command function receives
+          its arguments as a table, just like widget creation. Hash paths
+          of the table are appended to the argument list for the Tk widget
+          command after the array part arguments, in the form of -key
+          value for each key/value pair. This is to easily specify
+          options. If an option receives more than one argument, you must
+          specify the arguments wrapped in a call to ltk.vals().
+          The generated widget command function is cached internally, so
+          after the first call to ltk.wcmd() for a specific widget,
+          subsequent calls for the same widget will reuse the cached
+          widget command function.
+
+Accessing Tcl/Tk variables
+
+          Some Tk widgets can set Tcl variables or read their values from
+          them. You can access those variables from Lua using the ltk.var
+          array. In order to access a Tcl variable named tclvar, from Lua
+          you would access ltk.var.tclvar. Only String, Number, Boolean or
+          List Variables can be accessed in that manner. This uses the
+          ltcl getvar/setvar methods, so the var array behaves almost
+          exactly like those methods. The only difference is that reading
+          a variable from ltk.var, that is not defined in the Tcl
+          interpreter, no error is thrown and instead nil is returned. See
+          README_ltcl for more information.
+
+Adding Tk widgets
+
+          In order to allow for a streamlined use of Tk extension widgets,
+          two functions are provided that allow to add new tk widgets to a
+          ltk module.
+
+          Shared libraries providing new Tk widgets are loaded into the
+          interpreter using ltk.addpackage(pkg). This does a 'package
+          require "pkg"' in the Tcl interpreter used by the ltk module.
+
+          The widgets you want to use can then be added using the function
+          ltk.addtkwidget(wtype[, cfix[, wfix[, wname]]]). The first
+          argument is the name of the widget type, for a button widget
+          this would be 'button'. The second argument, cfix, is an
+          optional array of keys, for which the corresponding values in
+          the widget creation function can be functions. For positional
+          arguments, you can have a number in the table, for options you
+          would have the name of the option, minus the leading '-'. The
+          third argument, wfix, is an optional table where the indices are
+          the names of widget commands that may have functions or scripts
+          as arguments, and the value is a table like cfix. Both the cfix
+          and wfix argument can be nil. The final Argument, wname, is an
+          optional name for the widget. If specified, the widget will be
+          available as ltk.x_$wname, For example, the definition of the
+          text widget would be:
+
+          ltk.addtkwidget('text', {'xscrollcommand', 'yscrollcommand',
+          'create'}, { ['bind'] = {3} })
+
+          This means that we want to add a widget of type "text". It has
+          three configuration options that take code as argumeents, those
+          are 'xscrollcommand', 'yscrollcommand' and 'create'. The
+          'configure' widget command is also adjusted to handle this.
+          Also, the 'bind' widget command takes a function argument that
+          is specified at the third position in the argument list. For
+          example, given t being a widget of said type, using the widget
+          command
+
+          ltk.wcmd(t) {'bind', '', somefunction }
+
+          the third entry in the widget command table would be fixed for
+          use with tk.
+
+          The resulting widget creation function is then available through
+          the ltk module under the name x_$wtype, or if specified, as
+          ltk.x_$wname. If a widget type used as a name here contains
+          colons, they will be replaced by underscores. For the above text
+          widget this would be then available as ltk.x_text. This name is
+          also returned when ltk.getwidgettype() is called on a widget
+          created by this function. The widget created by such a function
+          is completely integrated with the ltk module, and behaves like
+          any other widget in all regards.
+
+Notes on <Destroy> events
+
+          When a Lua event handler is registered for a <Destroy> event,
+          and there is an error in that Lua function, it may not be
+          reported. This only applies to <Destroy> events, all other
+          events do not have this "problem". In order to find bugs in your
+          handler code, use pcall to wrap the handler code, like so:
+
+          function destroy_handler() local ok, msg = pcall(function() ...
+          your code goes here end) if not ok then print msg end end
+
+          Also, you should not refer to your ltk module from <Destroy>
+          handlers, as they may be called on application shutdown, and
+          your ltk module may be partially or completely invalid at this
+          point.
+
+Misc stuff
+
+          The ltk module exports 3 additional constants: _TKVERSION,
+          _VERSION and _REVISION. _TKVERSION contains the version of the
+          loaded Tk toolkit. The fields _VERSION and _REVISION contain the
+          ltk version information. As long as the _VERSION number is the
+          same, there have been no changes to the module API. Bugfix
+          releases only increment the _REVISION number. These constants
+          are also available through any created ltk module.
+
+          The ltk module also has an additional accessible field that
+          might be interesting. This is the field tcl, which contains the
+          Tcl interpreter used by the ltk state. Take a look at
+          README_ltcl for additional information, if you want to directly
+          use that. If you need to call back into Lua from Tcl, you will
+          need to either register the function with Tcl before using it,
+          or if you can directy call back using the Tcl command "lua" that
+          is a part of ltcl. See README_ltcl for additional information.
+
+          If you use the Tcl interpreter directly, keep in mind that any
+          symbol of the form .__ltk* is reserved for use by ltk.
+
+          Errors are propagated as described in the "Error handling"
+          section of README_ltcl. This has the nice side effect that once
+          the application is runing in the mainloop, errors on the Lua
+          side will be presented to the user in the same way as errors on
+          the Tcl side, in a message box.
+
+          After the widget '.' has been destroyed (for example, by
+          clicking on its windows close icon), the ltk module state is
+          invalid.
+
+References
+
+          I worked with Tcl/Tk 8.4 and 8.5. The relevant documentation is
+          here:
+
+          for Tcl 8.4 at http://www.tcl.tk/man/tcl8.4/TclCmd/contents.htm
+          for Tk 8.4 at http://www.tcl.tk/man/tcl8.4/TkCmd/contents.htm
+          for Tcl 8.5 at http://www.tcl.tk/man/tcl8.5/TclCmd/contents.htm
+          for Tk 8.5 at http://www.tcl.tk/man/tcl8.5/TkCmd/contents.htm
+          and for general Tk stuff also http://www.tkdocs.com/

@@ -1,0 +1,15 @@
+lpeg = "lpeg"
+lfs = "lfs"
+complex = "complex"
+winapi = "winapi-1.4"
+M["socket.core"] = "luasocket/src"
+M["mime.core"] = "luasocket/src"
+posix_c = "luaposix"
+curses_c = "luaposix"
+ltcl = "ltcltk-0.9-2"
+
+
+
+
+
+

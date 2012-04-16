@@ -1,0 +1,14 @@
+local libs
+if PLAT~='Darwin' then
+    libs = 'crypt '
+end
+if PLAT=='Linux' then
+    libs = libs .. 'rt'
+end
+
+luabuild.lua 'posix'
+luabuild.test 'tests-posix.lua'
+
+return c.library {LIBDIR..'posix_c',src='lposix',libs = libs,
+    args = ARGS,incdir={LUADIR,'.'}
+}

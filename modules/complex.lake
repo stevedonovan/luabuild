@@ -1,0 +1,9 @@
+-- sorry, take this one up with Microsoft!
+if CC == 'cl' then
+    quit "MSVC does not do C99 complex"
+end
+
+luabuild.test 'test.lua'
+
+return c99.library{LIBDIR..'complex',src='lcomplex',args=ARGS}
+

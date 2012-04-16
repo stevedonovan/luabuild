@@ -1,0 +1,79 @@
+                               luaposix
+                               --------
+
+                     Reuben Thomas <rrt@sc3d.org>
+                http://luaforge.net/projects/luaposix
+
+
+This is a POSIX library, including curses, for Lua 5.1 and 5.2. It
+is released under the MIT license, like Lua (see COPYING; it's
+basically the same as the BSD license). There is no warranty.
+
+Please report bugs and make suggestions to the email address above, or
+use the LuaForge trackers.
+
+
+Installation
+------------
+
+luaposix uses the GNU build system. For detailed instructions, see
+INSTALL. For a quick start:
+
+[If using git sources:
+
+  ./bootstrap
+]
+
+  ./configure && make [&& make install]
+
+The following options may be of interest if you have Lua installed on
+non-default paths (as you are likely to on any system supporting more
+than one version of Lua):
+
+  --libdir=DIR            Install shared library in this directory
+  --with-lua-prefix=DIR   Lua files are in DIR
+  --with-lua-suffix=ARG   Lua binary and library files are suffixed with ARG
+
+For example, on Debian or Ubuntu:
+
+  CPPFLAGS='-I/usr/include/lua5.1' ./configure --libdir=/usr/local/lib/lua/5.1 --datadir=/usr/local/share/lua/5.1 --with-lua-suffix=5.1
+
+To run some tests:
+
+  make check
+
+lunit is required for some of the tests. For a version of lunit that
+works with Lua 5.2, see: https://github.com/dcurrie/lunit.git
+
+
+Use
+---
+
+The library is split into two modules. The basic POSIX APIs are in
+"posix"; the curses APIs in "curses".
+
+There is some HTML documentation for the curses module; to obtain it,
+run
+
+  make doc
+
+For the posix module, see lposix.c. For detailed documentation on
+POSIX APIs, read the POSIX and curses man pages, or an online POSIX
+reference such as:
+
+  http://www.opengroup.org/onlinepubs/007904875/toc.htm
+
+To see a summary of which POSIX APIs are available, run
+
+  make show-funcs
+
+
+Example code
+------------
+
+See the example program tree.lua, along with the tests in
+tests*.lua.
+
+GNU Zile 2.5.0 and later is written in Lua, using luaposix, so it
+contains plenty of example code. See the lua branch of its git
+repository at: http://git.savannah.gnu.org/cgit/zile.git/log/?h=lua

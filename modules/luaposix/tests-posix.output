@@ -1,0 +1,214 @@
+posix library for Lua 5.2 / 5.1.18
+
+-------------------------------------------------------	uname
+Linux azisa-server 2.6.32-34-generic #77-Ubuntu SMP Tue Sep 13 19:40:53 UTC 2011 i686
+Machine azisa-server is a i686 running Linux 2.6.32-34-generic
+
+-------------------------------------------------------	terminal
+azisa	/dev/pts/1	/dev/tty	xterm
+azisa	nil	/dev/tty	xterm
+azisa	/dev/pts/1	/dev/tty	xterm
+
+-------------------------------------------------------	getenv
+USER	azisa
+HOME	/home/azisa
+SHELL	/bin/bash
+absent	nil
+DBUS_SESSION_BUS_ADDRESS	=	unix:abstract=/tmp/dbus-Iz9tB8NMmw,guid=0a051aadc51ead0e2b8d52ab4f83db96
+DISPLAY	=	:0.0
+OLDPWD	=	/home/azisa/lua/luabuild/modules
+DESKTOP_SESSION	=	gnome
+GNOME_KEYRING_CONTROL	=	/tmp/keyring-7LDyq4
+LESSOPEN	=	| /usr/bin/lesspipe %s
+LOGNAME	=	azisa
+SPEECHD_PORT	=	7560
+GDM_KEYBOARD_LAYOUT	=	us
+NO_PROXY	=	localhost,127.0.0.0/8,*.local
+USER	=	azisa
+WINDOWID	=	56680132
+LS_COLORS	=	rs=0:di=01;34:ln=01;36:hl=44;37:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.lzma=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.dz=01;31:*.gz=01;31:*.bz2=01;31:*.bz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.rar=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.axv=01;35:*.anx=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.axa=00;36:*.oga=00;36:*.spx=00;36:*.xspf=00;36:
+GTK_MODULES	=	canberra-gtk-module
+GNOME_KEYRING_PID	=	1650
+GOARCH	=	386
+http_proxy	=	http://jhb-proxy.csir.co.za:3128/
+GNOME_DESKTOP_SESSION_ID	=	this-is-deprecated
+TERM	=	xterm
+XDG_CONFIG_DIRS	=	/etc/xdg/xdg-gnome:/etc/xdg
+XDG_DATA_DIRS	=	/usr/share/gnome:/usr/local/share/:/usr/share/
+ftp_proxy	=	ftp://jhb-proxy.csir.co.za:3128/
+PWD	=	/home/azisa/lua/luabuild/modules/luaposix
+ALL_PROXY	=	socks://jhb-proxy.csir.co.za:3128/
+LESSCLOSE	=	/usr/bin/lesspipe %s %s
+GDMSESSION	=	gnome
+HOME	=	/home/azisa
+ORBIT_SOCKETDIR	=	/tmp/orbit-azisa
+XDG_SESSION_COOKIE	=	be6acaeffee2f628234ef7b04cb42d7c-1334041493.967831-1356641969
+SHLVL	=	1
+XAUTHORITY	=	/var/run/gdm/auth-for-azisa-UOZcW1/database
+LANG	=	en_ZA.utf8
+SHELL	=	/bin/bash
+SESSION_MANAGER	=	local/azisa-server:@/tmp/.ICE-unix/1668,unix/azisa-server:/tmp/.ICE-unix/1668
+SSH_AGENT_PID	=	1702
+GDM_LANG	=	en_ZA.utf8
+PATH	=	/home/azisa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/home/azisa/class1/trunk/go/bin
+no_proxy	=	localhost,127.0.0.0/8,*.local
+COLORTERM	=	gnome-terminal
+DEFAULTS_PATH	=	/usr/share/gconf/gnome.default.path
+GOROOT	=	/home/azisa/class1/trunk/go
+MANDATORY_PATH	=	/usr/share/gconf/gnome.mandatory.path
+SSH_AUTH_SOCK	=	/tmp/keyring-7LDyq4/ssh
+https_proxy	=	https://jhb-proxy.csir.co.za:3128/
+all_proxy	=	socks://jhb-proxy.csir.co.za:3128/
+_	=	/usr/bin/lua
+USERNAME	=	azisa
+
+
+-------------------------------------------------------	setenv
+setenv	MYVAR	=	123
+now	MYVAR	=	123
+setenv	MYVAR	=	nil
+now	MYVAR	=	nil
+
+-------------------------------------------------------	getcwd, chdir, mkdir, rmdir
+rmdir	x: No such file or directory
+now at	/home/azisa/lua/luabuild/modules/luaposix
+now at	/home/azisa/lua/luabuild/modules
+chdir	xxx: No such file or directory
+now at	/home/azisa/lua/luabuild/modules
+chdir	/etc/uucp: No such file or directory
+now at	/home/azisa/lua/luabuild/modules
+chdir	/var/spool/mqueue: No such file or directory
+now at	/home/azisa/lua/luabuild/modules
+now at	/home/azisa/lua/luabuild/modules/luaposix
+now at	/home/azisa/lua/luabuild/modules/luaposix/x
+now at	/home/azisa/lua/luabuild/modules/luaposix/x
+mkdir	.: File exists
+rmdir	.: Invalid argument
+now at	nil
+now at	/home/azisa/lua/luabuild/modules/luaposix
+rmdir	x: No such file or directory
+
+-------------------------------------------------------	fork, execp
+in child process 17331 from 17330.
+now executing date... [Fri 13 Apr 2012 09:37:10 SAST]
+process 17330 forked child process 17331. waiting...
+child process 17331 done
+
+-------------------------------------------------------	dir, stat
+now at	/home/azisa/lua/luabuild/modules/luaposix
+rwxr-xr-x	azisa/azisa	4096	Apr 13 09:37	.	directory
+rwxr-xr-x	azisa/azisa	4096	Apr 12 15:08	..	directory
+rw-r--r--	azisa/azisa	694	Apr 05 19:44	AUTHORS	regular
+rw-r--r--	azisa/azisa	2534	Apr 10 18:22	bsd-strlcpy.c	regular
+rw-r--r--	azisa/azisa	2057	Apr 05 19:44	ChangeLog.old	regular
+rw-r--r--	azisa/azisa	25	Apr 10 17:10	config.h	regular
+rw-r--r--	azisa/azisa	1066	Apr 05 19:44	COPYING	regular
+rw-r--r--	azisa/azisa	1590	Apr 05 19:44	curses.lua	regular
+rw-r--r--	azisa/azisa	50388	Apr 10 18:23	lcurses.c	regular
+rw-r--r--	azisa/azisa	53949	Apr 11 09:05	lposix.c	regular
+rw-r--r--	azisa/azisa	590	Apr 05 19:44	lua52compat.h	regular
+rw-r--r--	azisa/azisa	46	Apr 05 19:44	NEWS	regular
+rw-r--r--	azisa/azisa	2361	Apr 05 19:44	posix.lua	regular
+rw-r--r--	azisa/azisa	2168	Apr 05 19:44	README	regular
+rw-r--r--	azisa/azisa	61	Apr 05 19:44	tests-curses.lua	regular
+rw-r--r--	azisa/azisa	1411	Apr 05 19:44	tests-fcntl.lua	regular
+rw-r--r--	azisa/azisa	6612	Apr 10 19:03	tests-posix.lua	regular
+rw-r--r--	azisa/azisa	1929	Apr 10 19:08	tree.lua	regular
+rw-r--r--	azisa/azisa	346	Apr 13 09:37	lposix.d	regular
+rw-r--r--	azisa/azisa	64232	Apr 13 09:37	lposix.o	regular
+rw-r--r--	azisa/azisa	330	Apr 13 09:37	lcurses.d	regular
+rw-r--r--	azisa/azisa	70308	Apr 13 09:37	lcurses.o	regular
+rw-r--r--	azisa/azisa	5986	Apr 13 09:37	tests-posix.output	regular
+
+-------------------------------------------------------	fnmatch
+
+-------------------------------------------------------	glob
+now at	/home/azisa/lua/luabuild/modules/luaposix
+rw-r--r--	azisa/azisa	1590	Apr 05 19:44	curses.lua	regular
+rw-r--r--	azisa/azisa	2361	Apr 05 19:44	posix.lua	regular
+rw-r--r--	azisa/azisa	61	Apr 05 19:44	tests-curses.lua	regular
+rw-r--r--	azisa/azisa	1411	Apr 05 19:44	tests-fcntl.lua	regular
+rw-r--r--	azisa/azisa	6612	Apr 10 19:03	tests-posix.lua	regular
+rw-r--r--	azisa/azisa	1929	Apr 10 19:08	tree.lua	regular
+
+-------------------------------------------------------	umask
+rwxr-xr-x
+r--r--r--
+r--r--rw-
+-r--r--rw- 1 azisa azisa 0 2012-04-13 09:37 xxx
+
+-------------------------------------------------------	chmod, access
+nil	xxx: No such file or directory	2
+0
+-r--r--rw- 1 azisa azisa 0 2012-04-13 09:37 xxx
+0
+nil	xxx: Permission denied	13
+---------x 1 azisa azisa 0 2012-04-13 09:37 xxx
+
+-------------------------------------------------------	utime
+-rw-r--r-- 1 azisa azisa 6612 2012-04-10 19:03 /home/azisa/lua/luabuild/modules/luaposix/tests-posix.lua
+-r--r--rw- 1 azisa azisa    0 2012-04-13 09:37 xxx
+-rw-r--r-- 1 azisa azisa 6612 2012-04-10 19:03 /home/azisa/lua/luabuild/modules/luaposix/tests-posix.lua
+-r--r--rw- 1 azisa azisa    0 2012-04-10 19:03 xxx
+
+-------------------------------------------------------	links
+0
+0
+-r--r--rw- 2 azisa azisa 0 2012-04-13 09:37 xxx
+-r--r--rw- 2 azisa azisa 0 2012-04-13 09:37 yyy
+lrwxrwxrwx 1 azisa azisa 3 2012-04-13 09:37 zzz -> xxx
+zzz ->	xxx
+zzz ->	nil	xxx: Invalid argument	22
+
+-------------------------------------------------------	getpasswd
+
+
+
+
+
+1234567	no such user
+xxx	no such user
+azisa	/bin/bash
+azisa	/bin/bash
+root	/bin/bash
+
+-------------------------------------------------------	sysconf
+OPEN_MAX	1024
+NGROUPS_MAX	65536
+TZNAME_MAX	6
+STREAM_MAX	16
+CLK_TCK	100
+CHILD_MAX	-1
+VERSION	200809
+JOB_CONTROL	1
+SAVED_IDS	1
+ARG_MAX	2097152
+
+-------------------------------------------------------	pathconf
+NAME_MAX	255
+MAX_CANON	255
+CHOWN_RESTRICTED	1
+VDISABLE	0
+PIPE_BUF	4096
+NO_TRUNC	1
+PATH_MAX	4096
+MAX_INPUT	255
+LINK_MAX	32000
+
+-------------------------------------------------------	pipe
+
+-------------------------------------------------------	times
+utime	0
+stime	0
+elapsed	17445921.11
+cutime	0.02
+cstime	0.02
+sleeping 1 second...
+utime	0
+stime	0
+elapsed	17445922.11
+cutime	0.02
+cstime	0.02
+
+elapsed	1
+clock	0

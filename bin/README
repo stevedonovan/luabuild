@@ -1,0 +1,1 @@
+Executables and shared libraries end up here. If your Lua52 is built with custom_lua_path = true then this is where it will find its binary modules

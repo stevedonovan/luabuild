@@ -1,0 +1,380 @@
+----------------------
+-- LuaBuild
+-- A highly-configurable Lua 5.2 builder with options to build as
+-- executable, shared library/DLL or srlua stub (for both GCC and MSVC)
+-- Frequently-used modules may be statically linked into the result;
+-- you may exclude standard Lua modules as well.
+-- For instance, a static.modules file like this
+-- include = 'lfs'
+-- exclude = 'debug
+-- will statically link in LuaFileSystem and exclude the standard debug module.
+local lfs = require 'lfs'
+local append,join,exists = table.insert,path.join,path.exists
+local lua52 = _VERSION:match '5.2'
+
+local load_config
+local function load_config (src, env, dont_quit)
+    local str,err = file.read(src)
+    if not str then
+        if dont_quit then return nil,err end
+        quit (err)
+    end
+    local chunk,err
+    env = env or {}
+    if not lua52 then
+        chunk,err = loadstring(str,src)
+        if not chunk then quit(err) end
+        setfenv(chunk,env)
+    else
+        chunk,err = load(str,src,'t',env)
+        if not chunk then quit(err) end
+    end
+    if not pcall(chunk) then quit(err) end
+    return env
+end
+
+local function remove_targets(r)
+    for t in list(r.targets) do
+        utils.remove(t.target)
+    end
+end
+
+local function split (str) return str and utils.split_list(str) or {} end
+
+local function global_name (s) return s:match '^[%u_]+$'  ~= nil end
+
+local function read_config_file (name,dont_quit)
+    -- global _variables_ may be read in configuration files
+    local env = setmetatable({},{
+        __index = function(self,key)
+            if global_name(key) then return _G[key]
+            else quit("config: not defined "..key)
+            end
+        end
+    })
+    load_config (name,env,dont_quit)
+    setmetatable(env,nil)
+    return env
+end
+
+local function write_config_file (name,tbl)
+    local f = io.open(name,'w')
+    for k,v in pairs(tbl) do
+        if type(v) == 'string' then
+            v = '"'..v..'"'
+        else
+            v = tostring(v)
+        end
+        f:write(('%s = %s\n'):format(k,v))
+    end
+    f:close()
+end
+
+VERSION = "5.2"
+SRC = 'lua-5.2.0/'
+PWD = lfs.currentdir()..DIRSEP
+LIBDIR = PWD..'lib'..DIRSEP
+BINDIR = PWD..'bin'..DIRSEP
+MODDIR = PWD..'lua'..DIRSEP
+LUADIR = PWD..SRC
+LUALIB = LIBDIR.."lua"..VERSION
+
+CORE = [[ lapi lcode lctype ldebug ldump lfunc lgc llex
+	lmem lobject lopcodes lparser lstate lstring ltable
+	ltm lundump lvm lzio
+]]
+LDO = 'ldo'
+LIB = [[ lauxlib lbaselib lbitlib lcorolib ldblib liolib
+	lmathlib loslib lstrlib ltablib linit
+]]
+LOADLIB = 'loadlib'
+
+-- the standard Lua modules and their implementation files
+LIBNAMES = {
+    bit32 = 'lbitlib',
+    coroutine = 'lcorolib',
+    io = 'liolib',
+    math = 'lmathlib',
+    package = 'loadlib',
+    os = 'loslib',
+    string = 'lstrlib',
+    table = 'ltablib',
+    debug = 'ldblib',
+}
+
+-- read the manifest of available static modules and the configuration file
+local menv = {}
+menv.M = menv
+local xmodules = load_config ('modules/manifest',menv)
+
+local current_modules = 'current_modules'
+local old_config = read_config_file (current_modules,true)
+
+local config_file = CONFIG or 'default.config'
+local config = read_config_file(config_file)
+
+-- some defaults
+if config.build_shared == nil then config.build_shared = false end
+config.name = config.name or 'lua'
+if config.readline == nil then config.readline = true end
+
+-- we'll check this on the next run
+write_config_file(current_modules,config)
+
+-- any upper-case variables in the config are made global,
+-- so for instance you can set PREFIX, DEBUG or CC
+-- (but you do have to tell Lake about this possible configuration change)
+local globs = {}
+for k,v in pairs(config) do
+    if global_name(k) then globs[k] = v  end
+end
+if next(globs) then lake.set_flags(globs) end
+
+-- what modules must we include or exclude?
+local mods = split(config.include)
+local ex = split(config.exclude)
+
+for mod in list(mods) do
+    if not xmodules[mod] then quit(mod.." is not available in Luabuild") end
+end
+
+local excludes = {}
+for i,mod in ipairs(ex) do
+    if not LIBNAMES[mod] then quit(mod.." is not a built-in Lua library") end
+    excludes[i] = LIBNAMES[mod]
+    LIBNAMES[mod] = nil -- don't register these chaps
+end
+
+local linit_c, linit_c_template = SRC..'linit.c', SRC..'linit.c.in'
+
+-- add our modules to linit.c
+target(linit_c,{linit_c_template},function()
+    -- included external static modules
+    local dcls, reg = {},{}
+    if not config.build_shared then
+        for mod in list(mods) do
+            -- modules may be dotted, which is converted according to the Lua convention
+            local name = 'luaopen_'..mod:gsub('%.','_')
+            append(dcls,'int '..name..'(lua_State *L);')
+            append(reg,'{"'..mod..'",'..name..'},')
+        end
+    end
+    -- excluded standard modules
+    local lualibs = {}
+    for lname in pairs(LIBNAMES) do
+        append(lualibs,('{"%s",luaopen_%s},'):format(lname,lname))
+    end
+    local vars = {}
+    vars.DECLARATIONS = table.concat(dcls,'\n')
+    vars.REGISTER_EXTERNAL = table.concat(reg,'\n')
+    vars.REGISTER_INTERNAL = table.concat(lualibs,'\n')
+    print 'creating linit.c ...'
+    local tmpl = file.read (linit_c_template)
+    file.write(linit_c,utils.substitute(tmpl,vars))
+end)
+
+if old_config.include~=config.include or old_config.exclude~=config.exclude
+    or old_config.build_shared~=config.build_shared
+then
+    utils.remove(linit_c)
+end
+
+-- configuring Lua for this platform. By default, we link in readline
+-- for non-Windows targets unless config.readline is false.
+local needs = 'math '
+-- xdefs defines for loadlib.c
+-- ldefs defines for lua.c
+-- defs defines for the rest of Lua
+local defs, xdefs, ldefs
+if not WINDOWS then
+    if  not config.no_dlink then
+        needs = needs .. ' dl '
+    end
+    if PLAT == 'Linux' or PLAT == 'FreeBSD' then
+        defs = 'LUA_USE_LINUX'
+    elseif PLAT == 'Darwin' then
+        defs = 'LUA_USE_MACOSX'
+    else
+        defs = 'LUA_USE_POSIX'
+    end
+    if config.readline then
+        needs = needs..' readline '
+        ldefs = defs
+    else
+        -- hack: only Lua feature macro used in lua.c
+        ldefs = 'LUA_USE_ISATTY'
+    end
+else
+    if config.dll then -- ensure that Lua API is exported
+        defs = 'LUA_BUILD_AS_DLL'
+    end
+    ldefs = defs
+end
+
+-- To patch a custom module path, we need only modify luaconf.h for loadlib.c.
+-- So the library build is partioned into two groups.
+
+if config.custom_lua_path or config.no_dlink then
+    if config.custom_lua_path then
+        local path = config.custom_lua_path
+        path = path == true and PWD or path
+        -- to get our path properly converted to a string in luaconf.h
+        path = path:gsub('\\','\\\\')
+        xdefs = defs..' '..'LUA_CUSTOM_DIR='..path
+    else
+        xdefs = nil
+    end
+else
+    xdefs = defs
+end
+
+local libs
+local def = {base=SRC,dynamic=config.dynamic}
+
+-- gcc 4.6 messes up setjmp/longjmp when optimizing
+local ldo = c.group{LDO,defines=defs,args=def,
+    flags=choose(CC=='gcc','-fno-omit-frame-pointer')
+}
+
+-- treat loadib.c specially, since we want to use different flags
+local loadlib = c.group{LOADLIB,defines=xdefs,args=def}
+
+-- if these changed, then recompile loadlib.c
+if config.custom_lua_path ~= old_config.custom_lua_path
+    and config.no_dlink ~= old_config.no_dlink
+then
+    remove_targets(loadlib)
+end
+
+local luacore = c.group{'core',src=CORE..LIB,exclude=excludes,defines=defs,args=def}
+
+-- build the static Lua library, excluding any unneeded built-in modules;
+-- the linked result will inherit any link-time needs...
+local lualib,ll = c.library{LUALIB,
+    inputs = {loadlib,luacore,ldo},needs=needs
+}
+
+local modules_tested, current_module = {}
+
+-- create targets for building the modules statically or dynamically
+function generate_module_targets(shared)
+    local modules = {}
+    -- an unfortunate global necessity for any .lake files
+    ARGS = {incdir=LUADIR}
+    if shared then -- we link these DLLs against Lua
+        ARGS.dll = true
+        ARGS.dynamic = config.dynamic
+        if shared ~= true then ARGS.deps = {shared} end
+        modules[1] = loadlib
+    else
+        modules[1] = lualib
+    end
+    for i,mod in ipairs(mods) do
+        local moddir, lmod = xmodules[mod]
+        if WINDOWS then
+            moddir = moddir:gsub('/','\\')
+        end
+        ARGS.base = join("modules",moddir)
+        current_module = mod
+        -- this is only needed for MSVC where there's no .def file for a project
+        if shared then ARGS.llua = mod end
+        -- a module may have its own special lakefile
+        local lakefile = join('modules',mod..'.lake')
+        if exists(lakefile) then
+            ok,lmod = pcall(dofile,lakefile)
+            if not ok then quit(lakefile..": "..lmod) end
+        else -- we assume it's a single C file with the same name
+            lmod = c.library {LIBDIR..mod,src=mod,args=ARGS}
+            -- implicitly provide tests with a test.lua ...
+            if not modules_tested[current_module] and exists(join(ARGS.base,'test.lua')) then
+                luabuild.test 'test.lua'
+            end
+        end
+        append(modules,lmod)
+    end
+    return modules
+end
+
+luabuild = {}
+
+local targets, tests = {}, {}
+
+function luabuild.lua (files,subd)
+    subd = subd or ''
+    local g = file.group{ext='.lua',base=ARGS.base,src=files,odir=join(MODDIR,subd)}
+    append(targets,g)
+end
+
+function luabuild.test (file)
+    local base = path.abs(ARGS.base)
+    file = join(base,file)
+    local tname = path.abs("test",current_module)..'.output'
+    local test = target(tname,{file},join(BINDIR,config.name)..' '..file..' > $(TARGET)')
+    -- some tests want to be in their own directory!
+    test.dir = base
+    modules_tested[current_module] = true
+    append(tests,test)
+end
+
+-- build the executables and shared libraries
+
+if not config.build_shared then -- build our modules as static libs
+    libs = generate_module_targets()
+else
+    libs = {lualib}
+end
+
+if config.dll then -- generate a DLL/so
+    table.remove(libs,1)
+    local dll = c.shared {BINDIR..config.dll,rules=ll,deps=libs,dynamic=config.dynamic}
+    append(targets, dll)
+    if config.build_shared then
+        -- build our modules as DLLs linked against the Lua DLL
+        local cmods = target.shared(generate_module_targets(dll))
+        append(targets, cmods)
+    end
+    libs = {dll}  --> the Lua exe will link against this DLL
+end
+
+local name,source,base,export,incdir
+if not config.srlua then
+    -- regular Lua executable
+    name = config.name
+    source = 'lua'
+    base = SRC
+    if not WINDOWS then
+        export = true
+    end
+else -- we're building a srlua stub executable and bin/glue!
+    name = config.srlua
+    source = 'srlua'
+    base = 'srlua'
+    incdir = LUADIR
+    local glue = c.program{BINDIR..'glue',src='srlua/glue'}
+    append(targets, glue)
+end
+
+local prog,llua = c.program{BINDIR..name,
+    src=source,deps=libs,defines=ldefs,
+    base=base,export=export,dynamic=config.dynamic,incdir=incdir
+}
+append(targets, prog)
+
+if config.readline ~= old_config.readline then
+    remove_targets(llua)
+end
+
+if export and config.build_shared then -- usually Unix case; cd be done for Windows...
+    local cmods = target.shared(generate_module_targets(true))
+    append(targets, cmods)
+end
+
+default (targets)
+
+--- accessible with ./lake test
+target.test(tests)
+
+
+
+
+

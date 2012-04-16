@@ -1,0 +1,66 @@
+                                     README
+
+ltcltk
+
+   A package that provides bindings for Lua to Tcl and the Tk toolkit.
+
+   Author: Gunnar Zötl <gz@tset.de>, 2010, 2011.
+   Released under MIT/X11 license. See file LICENSE for details.
+
+   This has been developed using Tcl/Tk 8.4 and 8.5 on Linux and MacOS X.
+   It should also compile on Windows, the only non ISO-C function used is
+   snprintf().
+
+   ltcl is the binding to the Tcl interpreter. It allows to access Tcl
+   variables from Lua, function calls from Lua to Tcl and also from Tcl to
+   Lua, plus the ability to define Tcl functions in Lua. See README_ltcl
+   for details.
+
+   ltk is a simple pure-Lua binding to the Tk toolkit that uses ltcl to
+   access the Tk functionality through a Tcl interpreter. All standard Tk
+   functions and widgets from Tk 8.4 and Tk 8.5 are supported, with the
+   ability to provide Lua functions where standard Tk expects Tcl
+   functions or scripts. A few Tcl functions that seemed useful in the
+   context of ltk are also provided. See README_ltk for details.
+
+   A few examples are provided for illustration purposes. They reside in
+   the folder samples. The ones whose names start with tk are ported from
+   Tk 8.5 examples.
+
+Installing
+
+   You need to have the Tcl development files installed. On MacOS these
+   come with Xcode, on Linux you will have to install the appropriate
+   package. If you have both Tcl/Tk 8.4 and 8.5 installed on your system,
+   you may have to change the rockspec file to link to the appropriate
+   version. Normally calling
+   sudo luarocks install ltcltk
+
+   or when you have an unpacked source folder,
+   sudo luarocks make
+
+   should do the right thing.
+
+Known Issues
+
+   On MacOS X the ltkimage.lua sample does not terminate. The exit
+   function is not called, I don't know why. That is the main reason why
+   we're not at version 1.0.
+
+Versions
+
+   0.9-2
+
+          + bugfixes related to functions as arguments to widget commands
+            not having worked in some circumstances
+          + a bugfix related to <Destroy> events, where event handlers
+            might have been called multiple times
+          + addition of the "tag" widget command for the text widget
+          + a slightly modified ltk.addtkwidget() function
+          + Also there is a bit of new sample code.
+
+          Thanks to Alex Bradbury for bug reports and the suggestion of
+          the additional argument to ltk.addtkwidget().
+
+   0.9-1
+          Initial release
