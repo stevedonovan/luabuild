@@ -1,0 +1,3 @@
+luabuild.test "test.lua"
+
+return c.library {LIBDIR.."lsqlite3",src="lsqlite3",args=ARGS,needs="sqlite3"}
