@@ -2584,14 +2584,22 @@ local function _program(ptype,name,deps,lang)
         end
         -- @doc we may depend on static libraries which have explicit link needs!
         if deps then
-            local xlibs = {}
+            local xlibs,lflags = {},''
             for d in list_(deps) do
-                if istarget(d) and d.ptype == 'lib' and d.libs then
-                   list.extend_unique(xlibs,deps_arg(d.libs))
+                if istarget(d) and d.ptype == 'lib'  then
+                    if d.libs then 
+                        list.extend_unique(xlibs,deps_arg(d.libs))
+                    end
+                    if d.libflags then
+                        lflags = lflags .. ' ' .. d.libflags
+                    end
                 end
             end
             if #xlibs > 0 then
                 args.libs = list.extend_unique(args.libs,xlibs)
+            end
+            if #lflags > 0 then
+                args.libflags = (args.libflags or '') .. ' ' .. lflags
             end
         end
         -- @doc 'libs' specifying the list of libraries to be linked against
@@ -2737,6 +2745,7 @@ local function _program(ptype,name,deps,lang)
         t = new_target(target,dependencies,link_str,true)
         t.name = name
         t.libs = ptype ~= 'lib' and libs or args.libs
+        t.libflags = args.libflags
         t.link = lang
         t.input = name..lang.obj_ext
         t.lua = args.lua
