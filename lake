@@ -2245,7 +2245,11 @@ local function examine_config_vars(package)
         if WINDOWS or libdir ~= nil then checkdir(libdir,libdir_v) end
         checkdir(libs,libs_v,package)
     end
-    return {incdir = incdir, libdir = libdir, libs = libs, flags = cflags, libflags = lflags}
+    local res = {incdir = incdir, libdir = libdir, libs = libs, flags = cflags, libflags = lflags}
+    if not next(res) then -- we found nuffink...
+        res = nil
+    end
+    return res
 end
 
 local pkg_config_present
