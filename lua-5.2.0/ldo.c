@@ -99,6 +99,7 @@ static void seterrorobj (lua_State *L, int errcode, StkId oldtop) {
   L->top = oldtop + 1;
 }
 
+
 l_noret luaD_throw (lua_State *L, int errcode) {
   if (L->errorJmp) {  /* thread has an error handler? */
     L->errorJmp->status = errcode;  /* set status */
@@ -119,6 +120,7 @@ l_noret luaD_throw (lua_State *L, int errcode) {
     }
   }
 }
+
 
 int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud) {
   unsigned short oldnCcalls = L->nCcalls;
