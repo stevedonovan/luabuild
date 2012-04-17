@@ -17,6 +17,7 @@ Lua C extensions are usually shipped with makefiles, which are designed to build
  * [luaposix](https://github.com/rrthomas/luaposix)  POSIX API
  * [winapi](https://github.com/stevedonovan/winapi) Minimal Windows API
  * [ltcltk](http://www.tset.de/ltcltk/) Binding to Tcl/Tk
+ * [LuaSQLite3](http://lua.sqlite.org/index.cgi/index)
 
  These are all all Lua 5.2 compatible, which required some extra (but necessary) work. Some of these (luaposix and winapi) are very platform-dependent; ltcltk could be in principle built on Windows, but Tcl/Tk is an awkward dependency on that platform. I don't claim that these modules represent some kind of ideal extended core, simply that they are (a) widely used and (b) small enough to link in statically.  'Small enough' is a tough requirement when contemplating GUI toolkits in particular, because even the _bindings_ to common cross-platform kits like wxWidgets and Qt get rather large.
 

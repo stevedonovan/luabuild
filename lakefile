@@ -198,8 +198,14 @@ if not WINDOWS then
         defs = 'LUA_USE_POSIX'
     end
     if config.readline then
-        needs = needs..' readline '
-        ldefs = defs
+        if config.readline == true then
+            needs = needs..' readline '
+            ldefs = defs
+        elseif config.readline == 'linenoise' then
+            ldefs = 'LUA_USE_LINENOISE LUA_USE_ISATTY'
+        else
+            quit("readline can either be true or 'linenoise'")
+        end
     else
         -- hack: only Lua feature macro used in lua.c
         ldefs = 'LUA_USE_ISATTY'
@@ -281,8 +287,11 @@ function generate_module_targets(shared)
         -- a module may have its own special lakefile
         local lakefile = join('modules',mod..'.lake')
         if exists(lakefile) then
-            ok,lmod = pcall(dofile,lakefile)
-            if not ok then quit(lakefile..": "..lmod) end
+            if _DEBUG then dofile(lakefile)
+            else
+                ok,lmod = pcall(dofile,lakefile)
+                if not ok then quit(lakefile..": "..lmod) end
+            end
         else -- we assume it's a single C file with the same name
             lmod = c.library {LIBDIR..mod,src=mod,args=ARGS}
             -- implicitly provide tests with a test.lua ...
@@ -295,7 +304,7 @@ function generate_module_targets(shared)
     return modules
 end
 
-luabuild = {}
+luabuild = { config = config }
 
 local targets, tests = {}, {}
 
@@ -352,6 +361,11 @@ else -- we're building a srlua stub executable and bin/glue!
     incdir = LUADIR
     local glue = c.program{BINDIR..'glue',src='srlua/glue'}
     append(targets, glue)
+end
+
+if config.readline == 'linenoise' then
+    local linenoise = c.library {LIBDIR..'linenoise',src='linenoise',base='linenoise'}
+    append(libs,linenoise)
 end
 
 local prog,llua = c.program{BINDIR..name,

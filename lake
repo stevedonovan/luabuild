@@ -2584,22 +2584,22 @@ local function _program(ptype,name,deps,lang)
         end
         -- @doc we may depend on static libraries which have explicit link needs!
         if deps then
-            local xlibs,lflags = {},''
+            local xlibs,lflags = {}
             for d in list_(deps) do
                 if istarget(d) and d.ptype == 'lib'  then
-                    if d.libs then 
+                    if d.libs then -- the lib has a list of libraries
                         list.extend_unique(xlibs,deps_arg(d.libs))
                     end
-                    if d.libflags then
-                        lflags = lflags .. ' ' .. d.libflags
+                    if d.libflags then -- the lib has special link flags
+                        lflags = concat(lflags,d.libflags)
                     end
                 end
             end
             if #xlibs > 0 then
                 args.libs = list.extend_unique(args.libs,xlibs)
             end
-            if #lflags > 0 then
-                args.libflags = (args.libflags or '') .. ' ' .. lflags
+            if lflags then
+                args.libflags = concat(args.libflags,lflags)
             end
         end
         -- @doc 'libs' specifying the list of libraries to be linked against

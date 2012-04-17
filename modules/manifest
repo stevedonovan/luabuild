@@ -8,6 +8,8 @@ posix_c = "luaposix"
 curses_c = "luaposix"
 ltcl = "ltcltk-0.9-2"
 lsqlite3 = "lsqlite3_svn08"
+linenoise = "lua-linenoise"
+
 
 
 

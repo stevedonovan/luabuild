@@ -72,6 +72,17 @@
           add_history(lua_tostring(L, idx));  /* add it to history */
 #define lua_freeline(L,b)       ((void)L, free(b))
 
+#elif defined(LUA_USE_LINENOISE)
+
+#include <stdio.h>
+#include <linenoise.h>
+
+#define lua_readline(L,b,p)     ((void)L, ((b)=linenoise(p)) != NULL)
+#define lua_saveline(L,idx) \
+        if (lua_rawlen(L,idx) > 0)  /* non-empty line? */ \
+          linenoiseHistoryAdd(lua_tostring(L, idx));  /* add it to history */
+#define lua_freeline(L,b)       ((void)L, free(b))
+
 #elif !defined(lua_readline)
 
 #define lua_readline(L,b,p)     \
