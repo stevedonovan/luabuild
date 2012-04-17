@@ -363,8 +363,8 @@ else -- we're building a srlua stub executable and bin/glue!
     append(targets, glue)
 end
 
-if config.readline == 'linenoise' then
-    local linenoise = c.library {LIBDIR..'linenoise',src='linenoise',base='linenoise'}
+if config.readline == 'linenoise' and not WINDOWS then
+    local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
 end
 

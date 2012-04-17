@@ -1,15 +1,8 @@
-local deps
-if luabuild.config.readline ~= 'linenoise' then
-    deps = c.library {LIBDIR..'linenoise',
-        src='linenoise',
-        base=PWD..'linenoise'
-    }
-else -- the Lua core is linked against linenoise already!
-end
+-- in this case, we'll assume that the Lua core has always been statically linked
+-- against linenoise
 
 return c.library{LIBDIR..'linenoise',
     src='linenoise',
     incdir = {LUADIR,PWD..'linenoise'},
-    deps = deps,
     args=ARGS
 }
