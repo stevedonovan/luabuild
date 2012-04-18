@@ -67,14 +67,26 @@ local function print_usage()
   io_stderr:flush()
 end
 
+luai = {}
+
+local our_tostring = tostring
+local dofile
 local rl_support,rl
+
+local function tuple(...)
+  return {n=select('#', ...), ...}
+end
+
+local function is_pair_iterable(t)
+    local mt = getmetatable(t)
+    return type(t) == 'table' or (mt and mt.__pairs)
+end
 
 local function candidates(line)
   -- identify the expression!
   local i1,i2 = line:find('[.:%w_]+$')
   if not i1 then return end
   local front,partial = line:sub(1,i1-1), line:sub(i1)
-  --print(front,partial)
   local prefix, last = partial:match '(.-)([^.:]*)$'
   local t, all = _G
   if #prefix > 0 then        
@@ -95,10 +107,10 @@ local function candidates(line)
     end
   end
   local mt = getmetatable(t)
-  if type(t) == 'table' or mt.__pairs then
+  if is_pair_iterable(t) then
     append_candidates(t)
   end
-  if mt then
+  if mt and is_pair_iterable(mt.__index) then
     append_candidates(mt.__index)
   end
   return res
@@ -118,8 +130,29 @@ local function init_readline()
     rl_support,rl = pcall(require,'linenoise')
     if rl_support then
       rl.setcompletion(completion_handler)
+      local luarc = os.getenv 'HOME' .. '/.luairc.lua'
+      local f = io.open(luarc,'r')
+      if f then
+        f:close()
+        dofile(luarc)
+      end
     end
   end
+end
+
+
+function luai.set_tostring(ts)
+    local old_tostring = our_tostring
+    our_tostring = ts
+    return old_tostring
+end
+
+local function our_print (...)
+    local args = tuple(...)
+    for i = 1,args.n do
+        io.write(our_tostring(args[i]),'\t')
+    end
+    io.write '\n'
 end
 
 local function saveline(s)
@@ -153,10 +186,6 @@ local function report(status, msg)
   return status
 end
 
-local function tuple(...)
-  return {n=select('#', ...), ...}
-end
-
 local function traceback (message)
   local tp = type(message)
   if tp ~= "string" and tp ~= "number" then return message end
@@ -178,7 +207,7 @@ local function docall(f, ...)
   return unpack(result, 1, result.n)
 end
 
-local function dofile(name)
+function dofile(name)
   local f, msg = loadfile(name)
   if f then f, msg = docall(f) end
   return report(f, msg)
@@ -210,7 +239,6 @@ local function getargs (argv, n)
   end
   return arg
 end
-
 
 local function get_prompt (firstline)
   -- use rawget to play fine with require 'strict'
@@ -282,7 +310,7 @@ local function dotty ()
     end
     report(status, msg)
     if status and result.n > 1 then  -- any result to print?
-      status, msg = pcall(_G.print, unpack(result, 2, result.n))
+      status, msg = pcall(our_print, unpack(result, 2, result.n))
       if not status then
         l_message(progname, string_format(
             "error calling %s (%s)",
