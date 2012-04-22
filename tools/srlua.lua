@@ -1,5 +1,11 @@
 --- srlua
 -- Driver script for luabuild and srlua
+local usage = [[
+srlua: [options] scriptname
+    -o outputname (an .exe will be appended for Windows)
+    -=modules,-m modlist
+        Explicit list of modules; otherwise we read soar.out
+]]
 
 local loadstring, append = loadstring or load, table.insert
 local join = path.join
@@ -35,18 +41,42 @@ local function execute(cmd)
     return utils.execute(cmd)
 end
 
-local scriptname = arg[1] or quit "usage: scriptname outputname"
-local outfile = arg[2]
+local scriptname, outfile, binmods
+local i = 1
+while i <= #arg do
+    local a = arg[i]
+    if a == '-o' then
+        i = i + 1
+        outfile = arg[i]
+    elseif a == '-m' or a == '--modules' then
+        i = i + 1
+        binmods = utils.split(arg[i])
+    else
+        scriptname = a
+    end
+    i = i + 1
+end
 
-local modstr, err = file.read(manifest)
-if not modstr then quit ("srlua "..err) end
-local mods = loadstring('return '..modstr)()
+if not scriptname then quit(usage) end
+if not outfile then
+    local _,file = path.splitpath(scriptname)
+    outfile = path.splitext(file)
+end
+if WINDOWS and path.extension_of(outfile) == '' then
+    outfile = outfile..EXE_EXT
+end
 
--- find our binary modules!
-local binmods = {}
-for mod,path in pairs(mods) do
-    if path == 1010 then
-        append(binmods,mod)
+if not binmods then
+    local modstr, err = file.read(manifest)
+    if not modstr then quit ("srlua "..err) end
+    local mods = loadstring('return '..modstr)()
+
+    -- find our binary modules!
+    binmods = {}
+    for mod,path in pairs(mods) do
+        if path == 1010 then
+            append(binmods,mod)
+        end
     end
 end
 table.sort(binmods)

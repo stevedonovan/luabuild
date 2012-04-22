@@ -317,6 +317,7 @@ utils = {}
 local function split(s,re)
     local i1 = 1
     local ls = {}
+    re = re or '%s+'
     while true do
         local i2,i3 = s:find(re,i1)
         if not i2 then
