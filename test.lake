@@ -1,0 +1,25 @@
+
+local name = NAME or 'lua52'
+local testfile = name..'.tests'
+local f,err = io.open(testfile)
+if not f then quit(err) end
+
+local EXE = path.abs(path.join('bin',name))
+
+local tests = {}
+
+for line in f:lines() do
+    local args = utils.split(line,'\t')
+    local mod = args[1]
+    local luatest = args[2]
+    local tname = args[3]
+    local depends = args[4]
+    --print(mod,luatest,depends)
+    local test = target(tname,{luatest,depends},
+        EXE..' '..luatest..' > $(TARGET)')
+    test.dir = path.splitpath(luatest)
+    table.insert(tests,test)
+end
+
+default(tests)
+

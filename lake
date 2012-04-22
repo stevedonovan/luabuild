@@ -1600,6 +1600,15 @@ local function process_args()
         else
             if not no_synth_target and a:find('%.') and exists(a) then
                 -- @doc 'synth-target' unless specifically switched off with '-t',
+                if extension_of(a) == '.lua' then
+                    local args = {}
+                    for k = i+1,#arg do append(args,arg[k]) end
+                    args[0] = a
+                    args[-1] = LUA_EXE
+                    arg = args
+                    dofile(a)
+                    os.exit(0)
+                end
                 -- see if we have a suitable rule for processing
                 -- an existing file with this extension.
                 local _,_,rule = lake.deduce_tool(a,true)

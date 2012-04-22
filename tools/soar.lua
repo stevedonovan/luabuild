@@ -1,0 +1,467 @@
+local function usage(msg)
+    if msg then
+	print("soar: "..msg)
+    end
+    print[[
+soar: Analyze required packages and generate a standalone archive
+      of pure Lua scripts
+
+Usage: soar [opts] scriptname [args]
+
+options:
+    --static, -s
+	Use static analysis on scriptname to find module dependencies.
+	Uses luac for source analysis, only finds literal require"mod".
+	Otherise,  run scriptname using [args] and exit to print module
+	dependencies found dynamically during run.
+    --analyze, -a
+	only do analysis and write dependencies to solua.out
+	Otherwise, generate a standalone archive after analysis
+    --pack, -p
+	only pack an archive using existing dependency file
+    -o filename
+	Write output to this file. Otherwise write to standard output
+    --exclude "ml lom..."
+        Do not include the named modules in output.
+]]
+os.exit(1)
+end
+
+local ml=require "ml"
+local loadstring = loadstring or load
+local set, update, append = ml.invert, ml.import, table.insert
+
+local function tdump(t,f)
+    f = f or io.stdout
+    f:write(ml.tstring(t),'\n')
+end
+
+local function assertq (condn,msg)
+    if not condn then
+	io.stderr:write(msg or 'assertion failed')
+	os.exit(1)
+    end
+    return condn
+end
+
+local function warn(s)
+    io.stderr:write("*-* "..s.."\n")
+end
+
+local LUA_DIRSEP = package.config:sub(1,1)
+
+local tinsert = table.insert
+
+-- soar: generate a standalone archive of pure lua scripts from a manifest
+--
+-- Reads from solua.out, writes to standard out. Depends on the input modules
+-- being well-formed Lua code, which should be the case with soluadep output.
+
+-- Arguably, this should create another loader at the end instead of
+-- preload; perhaps the user has more up-to-date versions of modules
+-- available.
+
+function soar (lua, infile, manifest, outfile)
+    local readfile = ml.throw(ml.readfile,true)
+    local solua_out = "return "..readfile(manifest)
+    local sources = loadstring(solua_out)()
+    assertq(sources._main, "No main chunk listed")
+
+    local out
+    local original_outfile = outfile
+    if outfile then
+	if LUA_DIRSEP == "\\" and not outfile:match("%.lua$") then
+	    outfile = outfile .. "-all.lua"
+	end
+	out = assert(io.open(outfile,"w"))
+    else
+	out = io.stdout
+    end
+
+    local binary_modules = {}
+    local excluded_modules = {}
+    for mod,path in pairs(sources) do
+	if path == true then
+	    tinsert(excluded_modules, mod)
+	    sources[mod] = nil
+	elseif path == 1010 then
+	    tinsert(binary_modules, mod)
+	    sources[mod] = nil
+	end
+    end
+    table.sort(binary_modules)
+    table.sort(excluded_modules)
+
+    local _main = readfile(sources._main)
+    local _, tailindex, shebang = string.find(_main, "^(#!.-)\r?\n")
+    if shebang then
+	_main = string.sub(_main, tailindex)
+    else
+	shebang = "#!/usr/bin/env "..lua
+    end
+
+    out:write(shebang, "\n")
+
+    local function banner(mods, b)
+	if #mods > 0 then
+	    out:write("--# ", b, ": ")
+	    for _,m in ipairs(mods) do
+		out:write(m, " ")
+	    end
+	    out:write("\n")
+	end
+    end
+    banner(excluded_modules, "Modules not included")
+    banner(binary_modules, "Required binary modules")
+
+    -- that funny looking line is both a magic cookie and a way of confusing
+    -- lua-mode.el.
+    -- The ARG business is to prevent old Lua 5.0 behaviour from
+    -- upsetting everyone else
+
+    out:write[==[
+    local ARG = arg
+    local function _(...)STANDALONE_LUA[=[]]end]=]--archive, contains modules at end
+    local arg = ARG
+    ]==]
+
+    out:write(_main)
+    out:write([[----------------- main script ends here; referenced libraries follow
+    --------------------------------------------------------------------
+    end
+    function STANDALONE_LUA() end
+    ]])
+
+    sources._main = nil
+
+    for mod,filename in pairs(sources) do
+	out:write("\n----------------- begin ", mod)
+	if not hide_filenames then
+	    out:write(" (from ", filename, ")")
+	end
+	out:write("\nlocal function __(...)\n", readfile(filename))
+	out:write(ml.expand([[
+
+    end
+    package.preload["${mod}"] = __
+    ----------------- end ${mod}
+    ]], {mod=mod}))
+    end
+
+    out:write[[
+
+    -- Set the environment variable UNSOAR to instead produce the original
+    -- script on stdout.
+    if os.getenv("UNSOAR") then
+	io.input(arg[0])
+	shebang = io.read()
+	io.write(shebang, "\n")
+	assert((string.match(io.read(), "STANDALONE_LUA%[=%[%]%]")))
+	local pattern = string.gsub(
+	    "^----------------- main script ends here; referenced libraries follow",
+	    "%-", "%%-")
+	while true do
+	    local line = io.read()
+	    if string.match(line, pattern) then
+		os.exit(0)
+	    end
+	    io.write(line, "\n")
+	end
+    end
+
+    -- Invoking the main body; the script from the top of the program runs here.
+    _(...)
+    ]]
+
+    if outfile then
+	out:close()
+	if LUA_DIRSEP == "/" then
+	    os.execute("chmod +x "..outfile)
+	else
+	    local batfile = original_outfile:gsub('%.lua$','')..".bat"
+	    -- little hack to get us the Windows current working directory!
+	    local here = io.popen("echo %CD%"):read()
+	    local f = io.open(batfile,"w")
+	    f:write(('@echo off\n"%s" "%s\\%s" %s\n'):format(lua,here,outfile,'%*'))
+	    f:close()
+	    print("batch file written to: "..batfile)
+	end
+	print("output written to: "..outfile)
+    end
+
+end
+
+-- We need to exclude what's already present. Unfortunately LUA_INIT
+-- and this module itself use modules, so this is not quite the right thing:
+--
+-- local standalone_package_loaded = update({},package.loaded)
+--
+
+--
+-- Instead, just list things we do know about as of 2012.
+local standalone_package_loaded = set{"string", "debug", "package", "_G",
+				 "io", "os", "table", "math", "coroutine"}
+if table.pack then
+    standalone_package_loaded.bit32 = true
+end
+package.standalone_package_loaded = standalone_package_loaded
+
+-- If you're targeting another lua executable, add bit32 or whatever.
+
+-- If you know you're using, say, LuaSocket and there's no chance supplying
+-- it with an architecture-independent archive, arrange to place it here:
+
+-- for Luabuild purposes, the more the merrier - we'll need to check whether
+-- these external needs can be satisfied later.
+package.binonly_module = {}
+
+
+local explictly_excluded_modules = {}
+local explictly_listed_modules = {}
+local manifest
+
+local function warn_binonly(mod)
+    --warn("Unable to find module |"..mod.."|; should it be in --binary or SOLUA_BINONLY?")
+    package.binonly_module[mod] = '1010'
+end
+
+-- I'll use compat-5.1's search because it works better than mine. By the way,
+-- is there some way of getting at the default path lua 5.2's ";;" component
+-- specifies?
+
+-- BEGIN compat-5.1
+-- Copyright Kepler Project 2004-2006 (http://www.keplerproject.org/compat)
+-- According to Lua 5.1
+-- $Id: compat-5.1.lua,v 1.22 2006/02/20 21:12:47 carregal Exp $
+
+
+local function findfile (name, path)
+    name = name:gsub ("%.", LUA_DIRSEP)
+    for c in path:gmatch ("[^;]+") do
+	c = c:gsub ("%?", name)
+	if ml.exists(c) then
+	    return c
+	end
+    end
+    return nil -- not found
+end
+
+-- END compat-5.1
+
+
+local modulepaths = {}
+
+-- ml.expand has a bug: if foo contains "$bar" then "${foo}" will be
+-- double-substituted.
+
+-- The static analysis is totally a rerun from lualint. Back once
+-- again with the ill behavior.
+
+local function popen_luac(sourcepath)
+    assertq(sourcepath,"no sourcepath available")
+    assertq(ml.exists(sourcepath), "no file "..sourcepath)
+    local badchar = sourcepath:match("[^%w :_/.-]+")
+    if badchar then
+	assertq(true,
+	    ml.expand(
+		'popen does not have any defined cross-platform quoting '..
+		    'semantics; unknown character "$badchar" found '..
+		    'in "$sourcepath".',
+		{badchar=badchar, sourcepath=sourcepath}))
+    end
+
+    return assertq(io.popen('luac -p -l "'..sourcepath..'"'))
+end
+
+local function find_requires(sourcepath)
+    -- This function is super-cautious because "luac -l" is not at all
+    -- a documented interface, and blowing up on unexpected conditions
+    -- is better than blithely plowing on.
+
+    local f = popen_luac(sourcepath)
+
+    assertq(f:read() == "", "my luac returns a blank first line")
+    assertq(f:read():match("^main <"), "unanticipated first line")
+    assertq(f:read():match("^0%+ params,"), "main chunk takes parameters??")
+
+    -- A typical line:
+    -- 	11	[9]	GETTABLE 	4 2 -7	; "assert_arg"
+
+    -- Match the mandatory part of each listing line up to the semicolon;
+    -- capture line, opcode, and any semicolon clause.
+    -- If this fails to match, we don't understand anything about the listing.
+    local pat = "^%s+[0-9]+%s+%[([0-9]+)]%s+([A-Z]+)%s+[-0-9%s]+(.*)"
+
+    local requires = {}
+    local state = "none"
+    local candidate_module
+
+    for line in f:lines() do
+	if line:match("^%s*$") then
+	    -- Blank line marks end of the chunk. Stop looking.
+	    break
+	end
+	-- we're looking for a sequence of "GETGLOBAL require", a LOADK
+	-- of the module name, and a CALL. Anybody who did local require=require
+	-- has outsmarted us (and probably themselves too).
+	local linenumber,opcode,tail = line:match(pat)
+	assertq(linenumber, "unknown assembly format")
+	if state == "none" then
+	    if opcode == "GETGLOBAL" and tail:match("^; require") then
+		state = "found-require"
+	    end
+	elseif state == "found-require" then
+	    -- 9	[8]	LOADK    	4 -6	; "pl.lexer"
+	    module_name = tail:match('^; "(.*)"%s*$')
+	    if opcode == "LOADK" and module_name then
+		candidate_module = module_name
+		state = "found-loadk"
+	    else
+		state = "none"
+	    end
+	elseif state == "found-loadk" then
+	    if opcode == "CALL" then
+		requires[#requires+1] = candidate_module
+	    end
+	    state = "none"
+	else asserteq(true,"bug in state machine") end
+    end
+    return requires
+end
+
+local function is_unloadable_module(mod)
+    return package.binonly_module[mod] or package.standalone_package_loaded[mod] or explictly_excluded_modules[mod]
+end
+
+local function trace_static_dependencies_of_main(filename)
+    local static_dependencies={}
+
+    local trace_static_dependencies
+    function trace_static_dependencies(rootmod, filename)
+	static_dependencies[rootmod] = filename
+	local found_requires = find_requires(filename)
+	for _,mod in ipairs(found_requires) do
+	    -- Skip if we've already registered it.
+	    if not static_dependencies[mod] and not is_unloadable_module(mod) then
+		local sub_filename = findfile(mod, package.path)
+		if sub_filename then
+		    trace_static_dependencies(mod, sub_filename)
+		else
+		    warn_binonly(mod)
+		end
+	    end
+	end
+    end
+    trace_static_dependencies("_main", filename)
+    return static_dependencies
+end
+
+
+-- And something to call at the end, if you like dynamic analysis:
+local function find_dynamic_dependencies()
+    local depends = {}
+    for mod,_ in pairs(package.loaded) do
+	if not is_unloadable_module(mod) then
+	    local filename = findfile(mod, package.path)
+	    if filename then
+		depends[mod] = filename
+	    else
+		-- Well, we can't find where we loaded this module. This will
+		-- be true for anything on cpath.
+		warn_binonly(mod)
+	    end
+	end
+    end
+    return depends
+end
+
+-- sadly another approach, to deal with our own ml dependency
+local real_require = require
+package.explicit_require = {}
+function require(mod)
+    package.explicit_require[mod] = true
+    return real_require(mod)
+end
+
+local function dump_deps(deps)
+    update(deps, explictly_excluded_modules)
+    update(deps, explictly_listed_modules)
+    for k,_ in pairs(package.binonly_module) do
+	deps[k] = 1010 -- binary, get it?
+    end
+    --tdump(deps)
+    for k,v in pairs(deps) do
+	if v == 1010 then v = '*BINARY*' end
+	print(k,v)
+    end
+    local f = assertq(io.open(manifest, "w"))
+    tdump(deps, f)
+    f:close()
+end
+
+-- In case we replace during script runs.
+local real_os_exit=os.exit
+
+local function SOLUA_END(n)
+    -- let's not force ml down everyone's throat if they didn't ask for it
+    if not package.explicit_require["ml"] then
+	package.loaded.ml = nil
+    end
+    print('soar ---------- analysis over -------------')
+    dump_deps(find_dynamic_dependencies())
+--    real_os_exit(n) *SJD* we aim to keep going...
+end
+
+if arg then
+    if #arg < 1 then
+	usage()
+    end
+
+    local deps, scriptname, outfile
+    local only_analyze, only_pack = false, false
+    local static = false
+
+    local i = 0
+    while i < #arg do
+	i = i + 1
+    local a = arg[i]
+	if a == "--exclude" then
+	    i = i + 1
+	    if not arg[i] then usage("--exclude needs an argument") end
+	    update(explictly_excluded_modules, set(ml.split(arg[i])))
+	elseif a == "--static" or a == "-s" then
+	    static = true
+	elseif a == "--analyze" or a == "-a" then
+	    only_analyze = true
+	elseif a == "--pack" or a == "-p" then
+	    only_pack = true
+	elseif a == "-o" then
+	    i = i + 1
+	    outfile = arg[i]
+	else
+	    scriptname = a
+	    break
+	end
+    end
+    if not scriptname then usage("no scriptname provided") end
+    local lua = arg[-1]
+    arg = ml.sub(arg, i+1)
+    arg[0] = scriptname
+    arg[-1] = lua
+    manifest = "soar.out"
+    if static then
+	deps = trace_static_dependencies_of_main(scriptname)
+	dump_deps(deps)
+    elseif not only_pack then
+	explictly_listed_modules._main = scriptname
+	os.exit = SOLUA_END
+	print('soar ---------- running '..scriptname..' --------------')
+	dofile(scriptname)
+	-- Oh, I'll do it for you.
+	os.exit(0)
+    end
+
+    if not only_analyze then
+	soar(lua, scriptname, manifest, outfile)
+    end
+end

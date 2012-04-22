@@ -136,6 +136,10 @@ local ex = split(config.exclude)
 
 for mod in list(mods) do
     if not xmodules[mod] then quit(mod.." is not available in Luabuild") end
+    -- implicit core dependency from using the linenoise module
+    if mod == 'linenoise' then
+        config.readline = 'linenoise'
+    end
 end
 
 local excludes = {}
@@ -260,11 +264,12 @@ local lualib,ll = c.library{LUALIB,
     inputs = {loadlib,luacore,ldo},needs=needs
 }
 
-local modules_tested, current_module = {}
+local modules_tested, current_module, tests = {}
 
 -- create targets for building the modules statically or dynamically
 function generate_module_targets(shared)
     local modules = {}
+    tests = io.open(config.name..'.tests','w')
     -- an unfortunate global necessity for any .lake files
     ARGS = {incdir=LUADIR}
     if shared then -- we link these DLLs against Lua
@@ -301,12 +306,13 @@ function generate_module_targets(shared)
         end
         append(modules,lmod)
     end
+    tests:close()
     return modules
 end
 
 luabuild = { config = config }
 
-local targets, tests = {}, {}
+local targets = {}
 
 function luabuild.lua (files,subd)
     subd = subd or ''
@@ -315,15 +321,17 @@ function luabuild.lua (files,subd)
 end
 
 function luabuild.test (file)
-    local base = path.abs(ARGS.base)
+    local base, tname, deps = path.abs(ARGS.base)
     file = join(base,file)
-    local tname = path.abs("test",current_module)..'.output'
-    local test = target(tname,{file},join(BINDIR,config.name)..' '..file..' > $(TARGET)')
-    -- some tests want to be in their own directory!
-    test.dir = base
-    modules_tested[current_module] = true
-    append(tests,test)
+    tname = path.abs("test",config.name..'-'..current_module)..'.output'
+    if config.build_shared then
+        deps = LIBDIR..current_module:gsub('%.',DIRSEP)..DLL_EXT
+    else
+        deps = BINDIR..config.name..EXE_EXT
+    end
+    tests:write(current_module,'\t',file,'\t',tname,'\t',deps,'\n')
 end
+
 
 -- build the executables and shared libraries
 
@@ -385,8 +393,6 @@ end
 
 default (targets)
 
---- accessible with ./lake test
-target.test(tests)
 
 
 
