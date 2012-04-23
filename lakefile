@@ -136,8 +136,7 @@ local ex = split(config.exclude)
 
 for mod in list(mods) do
     if not xmodules[mod] then quit(mod.." is not available in Luabuild") end
-    -- implicit core dependency from using the linenoise module
-    if mod == 'linenoise' then
+    if mod == 'linenoise' then  -- core has implicit dependency on linenoise
         config.readline = 'linenoise'
     end
 end
@@ -374,6 +373,7 @@ end
 if config.readline == 'linenoise' and not WINDOWS then
     local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
+    incdir = '../linenoise'
 end
 
 local prog,llua = c.program{BINDIR..name,
