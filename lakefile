@@ -116,7 +116,7 @@ local config = read_config_file(config_file)
 -- some defaults
 if config.build_shared == nil then config.build_shared = false end
 config.name = config.name or 'lua'
-if config.readline == nil then config.readline = true end
+if config.readline == nil then config.readline = false end
 
 -- we'll check this on the next run
 write_config_file(current_modules,config)
@@ -188,6 +188,7 @@ local needs = 'math '
 -- xdefs defines for loadlib.c
 -- ldefs defines for lua.c
 -- defs defines for the rest of Lua
+local compat = config.no_lua51_compat and '' or 'LUA_COMPAT_ALL '
 local defs, xdefs, ldefs
 if not WINDOWS then
     if  not config.no_dlink then
@@ -200,22 +201,23 @@ if not WINDOWS then
     else
         defs = 'LUA_USE_POSIX'
     end
+    defs = compat..defs
     if config.readline then
         if config.readline == true then
             needs = needs..' readline '
             ldefs = defs
         elseif config.readline == 'linenoise' then
-            ldefs = 'LUA_USE_LINENOISE LUA_USE_ISATTY'
+            ldefs = compat..'LUA_USE_LINENOISE LUA_USE_ISATTY'
         else
             quit("readline can either be true or 'linenoise'")
         end
     else
         -- hack: only Lua feature macro used in lua.c
-        ldefs = 'LUA_USE_ISATTY'
+        ldefs = compat..'LUA_USE_ISATTY'
     end
 else
     if config.dll then -- ensure that Lua API is exported
-        defs = 'LUA_BUILD_AS_DLL'
+        defs = compat..'LUA_BUILD_AS_DLL'
     end
     ldefs = defs
 end
@@ -373,7 +375,7 @@ end
 if config.readline == 'linenoise' and not WINDOWS then
     local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
-    incdir = '../linenoise'
+    incdir = (incdir or '')..' ../linenoise'
 end
 
 local prog,llua = c.program{BINDIR..name,
