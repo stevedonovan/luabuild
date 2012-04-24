@@ -73,11 +73,11 @@ static int pmain(lua_State *L)
  }
  lua_setglobal(L,"arg");
  luaL_checkstack(L,argc,"too many arguments to script");
- for (i=0; i<argc; i++)
+ for (i=1; i<argc; i++)
  {
   lua_pushstring(L,argv[i]);
  }
- lua_call(L,argc,0);
+ lua_call(L,argc-1,0);
  return 0;
 }
 
