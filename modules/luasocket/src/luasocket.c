@@ -92,7 +92,7 @@ int luaL_typerror (lua_State *L, int narg, const char *tname) {
 }
 
 #if ! defined(LUA_COMPAT_MODULE)
-int luaL_openlib(lua_State *L, const char *name, luaL_Reg *funcs, int idx) {
+void luaL_openlib(lua_State *L, const char *name, const luaL_Reg *funcs, int idx) {
     if (name != NULL) {
         lua_getglobal(L,name);
         if (lua_isnil(L,-1)) {
@@ -102,7 +102,6 @@ int luaL_openlib(lua_State *L, const char *name, luaL_Reg *funcs, int idx) {
         }
     }
     luaL_setfuncs(L,funcs,0);
-    return 0;
 }
 #endif
 

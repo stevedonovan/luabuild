@@ -7,6 +7,11 @@ luabuild.lua('ftp.lua http.lua smtp.lua tp.lua url.lua','socket')
 luabuild.lua('socket.lua mime.lua ltn12.lua')
 luabuild.test 'test-driver.lua'
 
-return c.library {LIBDIR..'socket/core',src=SCORE,needs='sockets',defines='LUASOCKET_DEBUG',
+defines='LUASOCKET_DEBUG'
+if not luabuild.config.no_lua51_compat then
+    defines = defines..' LUA_COMPAT_ALL'
+end
+
+return c.library {LIBDIR..'socket/core',src=SCORE,needs='sockets',defines=defines,
     args = ARGS
 }

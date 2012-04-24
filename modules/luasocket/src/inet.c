@@ -22,7 +22,7 @@ static int inet_global_gethostname(lua_State *L);
 
 #if LUA_VERSION_NUM > 501
 int luaL_typerror (lua_State *L, int narg, const char *tname);
-int luaL_openlib(lua_State *L, const char *name, luaL_Reg *funcs, int idx);
+void luaL_openlib(lua_State *L, const char *name, const luaL_Reg *funcs, int idx);
 #endif
 
 
