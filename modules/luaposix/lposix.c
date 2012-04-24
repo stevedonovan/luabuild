@@ -67,6 +67,14 @@
 
 #include "lua52compat.h"
 
+/* not defined in FreeBSD */
+#ifndef ENODATA
+#define ENODATA ENOMSG
+#define ENOSTR ENOMSG
+#define ENOSR ENOMSG
+#define ETIME ENOMSG
+#endif
+
 /* ISO C functions missing from the standard Lua libraries. */
 
 static int Pabort(lua_State *L) /* abort() */
