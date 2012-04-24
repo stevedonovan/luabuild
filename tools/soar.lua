@@ -135,17 +135,19 @@ function soar (lua, infile, manifest, outfile)
     sources._main = nil
 
     for mod,filename in pairs(sources) do
-	out:write("\n----------------- begin ", mod)
-	if not hide_filenames then
-	    out:write(" (from ", filename, ")")
-	end
-	out:write("\nlocal function __(...)\n", readfile(filename))
-	out:write(ml.expand([[
+	if type(filename) == 'string' then -- i.e. not explicitly excluded
+	    out:write("\n----------------- begin ", mod)
+	    if not hide_filenames then
+		out:write(" (from ", filename, ")")
+	    end
+	    out:write("\nlocal function __(...)\n", readfile(filename))
+	    out:write(ml.expand([[
 
-    end
-    package.preload["${mod}"] = __
-    ----------------- end ${mod}
-    ]], {mod=mod}))
+end
+package.preload["${mod}"] = __
+----------------- end ${mod}
+]], {mod=mod}))
+	end
     end
 
     out:write[[
@@ -218,7 +220,7 @@ package.binonly_module = {}
 
 local explictly_excluded_modules = {}
 local explictly_listed_modules = {}
-local manifest
+local manifest, explictly_excluded_path
 
 local function warn_binonly(mod)
     --warn("Unable to find module |"..mod.."|; should it be in --binary or SOLUA_BINONLY?")
@@ -329,8 +331,21 @@ local function find_requires(sourcepath)
     return requires
 end
 
+local function is_explicitly_excluded(mod)
+    if explictly_excluded_modules[mod] then return true end
+    if not explictly_excluded_path then return false end
+    local path = findfile(mod, package.path)
+    if not path then return false end
+    local i1,i2 = path:find(explictly_excluded_path)
+    if i1 == 1 and i2 == #explictly_excluded_path then
+	explictly_excluded_modules[mod] = true
+	return true
+    end
+    return false
+end
+
 local function is_unloadable_module(mod)
-    return package.binonly_module[mod] or package.standalone_package_loaded[mod] or explictly_excluded_modules[mod]
+    return package.binonly_module[mod] or package.standalone_package_loaded[mod] or is_explicitly_excluded(mod)
 end
 
 local function trace_static_dependencies_of_main(filename)
@@ -396,6 +411,7 @@ local function dump_deps(deps)
     end
     local f = assertq(io.open(manifest, "w"))
     tdump(deps, f)
+    
     f:close()
 end
 
@@ -425,10 +441,15 @@ if arg then
     while i < #arg do
 	i = i + 1
     local a = arg[i]
-	if a == "--exclude" then
+	if a == "--exclude" or a == "-x" then
 	    i = i + 1
 	    if not arg[i] then usage("--exclude needs an argument") end
-	    update(explictly_excluded_modules, set(ml.split(arg[i])))
+	    a = arg[i]
+	    if a:match '^%S+/$' then
+		explictly_excluded_path = a
+	    else
+		update(explictly_excluded_modules, set(ml.split(a)))
+	    end
 	elseif a == "--static" or a == "-s" then
 	    static = true
 	elseif a == "--analyze" or a == "-a" then
@@ -440,7 +461,6 @@ if arg then
 	    outfile = arg[i]
 	else
 	    scriptname = a
-	    break
 	end
     end
     if not scriptname then usage("no scriptname provided") end
