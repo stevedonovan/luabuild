@@ -91,6 +91,7 @@ int luaL_typerror (lua_State *L, int narg, const char *tname) {
   return luaL_argerror(L, narg, msg);
 }
 
+#if ! defined(LUA_COMPAT_MODULE)
 int luaL_openlib(lua_State *L, const char *name, luaL_Reg *funcs, int idx) {
     if (name != NULL) {
         lua_getglobal(L,name);
@@ -103,6 +104,7 @@ int luaL_openlib(lua_State *L, const char *name, luaL_Reg *funcs, int idx) {
     luaL_setfuncs(L,funcs,0);
     return 0;
 }
+#endif
 
 #endif
 
