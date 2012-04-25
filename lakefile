@@ -364,7 +364,7 @@ if not config.srlua then
         export = true
     end
 else -- we're building a srlua stub executable and bin/glue!
-    name = join('srlua',config.srlua)
+    name = join('srluab',config.srlua)
     source = 'srlua'
     base = 'srlua'
     incdir = LUADIR

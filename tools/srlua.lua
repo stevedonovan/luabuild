@@ -88,7 +88,7 @@ local canon = 'lua-'..table.concat(were_mods and binmods or {'static'},'-')
 
 local uses_linenoise = list.index(binmods,'linenoise')
 
-local fullpath = lb_binpath(join('srlua',canon))
+local fullpath = lb_binpath(join('srluab',canon))
 if not path.exists(fullpath) then
     -- this srlua exe has not been built yet
     -- so we ask luabuild to make it
