@@ -140,7 +140,13 @@ function soar (lua, infile, manifest, outfile)
 	    if not hide_filenames then
 		out:write(" (from ", filename, ")")
 	    end
-	    out:write("\nlocal function __(...)\n", readfile(filename))
+	    local modstr = readfile(filename)
+	    -- some modules (like markdown) actually have a shebang..
+	    local i1,i2 = modstr:find '^#!/(.-)\n'
+	    if i1 == 1 then
+		modstr = modstr:sub(i2+1)
+	    end
+	    out:write("\nlocal function __(...)\n", modstr)
 	    out:write(ml.expand([[
 
 end
@@ -406,12 +412,15 @@ local function dump_deps(deps)
     end
     --tdump(deps)
     for k,v in pairs(deps) do
-	if v == 1010 then v = '*BINARY*' end
-	print(k,v)
+	if v ~= 1010 then print(k,v) end
+    end
+    print '---- binary dependencies ---'
+    for k,v in pairs(deps) do
+	if v == 1010 then print(k,'*BINARY*') end
     end
     local f = assertq(io.open(manifest, "w"))
     tdump(deps, f)
-    
+
     f:close()
 end
 
@@ -440,7 +449,7 @@ if arg then
     local i = 0
     while i < #arg do
 	i = i + 1
-    local a = arg[i]
+	local a = arg[i]
 	if a == "--exclude" or a == "-x" then
 	    i = i + 1
 	    if not arg[i] then usage("--exclude needs an argument") end
@@ -460,7 +469,9 @@ if arg then
 	    i = i + 1
 	    outfile = arg[i]
 	else
+	    if scriptname then break end
 	    scriptname = a
+	    break
 	end
     end
     if not scriptname then usage("no scriptname provided") end
@@ -468,6 +479,7 @@ if arg then
     arg = ml.sub(arg, i+1)
     arg[0] = scriptname
     arg[-1] = lua
+    --print(i); for k,v in pairs(arg) do print(k,v) end; os.exit()
     manifest = "soar.out"
     if static then
 	deps = trace_static_dependencies_of_main(scriptname)
