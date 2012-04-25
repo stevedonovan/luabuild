@@ -8,9 +8,12 @@ end
 
 local function bin_dir(f) return join('bin',f) end
 
-local function make_wrapper(target,exe)
-    local _, name = path.splitpath(target)
-    name = path.splitext(name)
+local function make_wrapper(target,exe,name)
+    if not name then
+        local _
+        _, name = path.splitpath(target)
+        name = path.splitext(name)
+    end
     target = path.abs(target)
     exe = exe or 'lua52'
     exe = path.abs(bin_dir(exe))
@@ -21,7 +24,7 @@ local function make_wrapper(target,exe)
     end
 end
 
-make_wrapper 'tools/soar.lua'
+make_wrapper ('tools/soar.lua',nil,'soar52')
 make_wrapper ('tools/srlua.lua','lake')
 make_wrapper 'lake'
 
