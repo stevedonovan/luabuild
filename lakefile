@@ -354,7 +354,7 @@ if config.dll then -- generate a DLL/so
     libs = {dll}  --> the Lua exe will link against this DLL
 end
 
-local name,source,base,export,incdir
+local name,source,base,export,incdir,xlibs
 if not config.srlua then
     -- regular Lua executable
     name = config.name
@@ -364,12 +364,15 @@ if not config.srlua then
         export = true
     end
 else -- we're building a srlua stub executable and bin/glue!
-    name = config.srlua
+    name = join('srlua',config.srlua)
     source = 'srlua'
     base = 'srlua'
     incdir = LUADIR
     local glue = c.program{BINDIR..'glue',src='srlua/glue'}
     append(targets, glue)
+    if WINDOWS and CC == 'cl' then -- mingw links against this by default
+        xlibs = 'user32'
+    end
 end
 
 if config.readline == 'linenoise' and not WINDOWS then
@@ -379,7 +382,7 @@ if config.readline == 'linenoise' and not WINDOWS then
 end
 
 local prog,llua = c.program{BINDIR..name,
-    src=source,deps=libs,defines=ldefs,
+    src=source,deps=libs,defines=ldefs,libs=xlibs,
     base=base,export=export,dynamic=config.dynamic,incdir=incdir
 }
 append(targets, prog)

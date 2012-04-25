@@ -3,7 +3,7 @@
 local usage = [[
 srlua: [options] scriptname
     -o outputname (an .exe will be appended for Windows)
-    -=modules,-m modlist
+    --modules,-m modlist
         Explicit list of modules; otherwise we read soar.out
 ]]
 
@@ -24,7 +24,7 @@ if not lb_dir then
             quit("buggered "..soar_path)
         end
     else
-        quit "soar is not on luabuild path, and LB_DIR variable has not been set"
+        quit "soar is not on luabuild path, and LUABUILD_DIR variable has not been set"
     end
 end
 
@@ -88,7 +88,7 @@ local canon = 'lua-'..table.concat(were_mods and binmods or {'static'},'-')
 
 local uses_linenoise = list.index(binmods,'linenoise')
 
-local fullpath = lb_binpath(canon)
+local fullpath = lb_binpath(join('srlua',canon))
 if not path.exists(fullpath) then
     -- this srlua exe has not been built yet
     -- so we ask luabuild to make it
