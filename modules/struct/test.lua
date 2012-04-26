@@ -30,17 +30,17 @@ assert(lib.pack('<h', 10) == string.char(10, 0))
 assert(lib.pack('>h', 10) == string.char(0, 10))
 assert(lib.pack('<h', -10) == string.char(256-10, 256-1))
 
-assert(lib.pack('<l', 10) == string.char(10, 0, 0, 0))
-assert(lib.pack('>l', 10) == string.char(0, 0, 0, 10))
-assert(lib.pack('<l', -10) == string.char(256-10, 256-1, 256-1, 256-1))
+assert(lib.pack('<i4', 10) == string.char(10, 0, 0, 0))
+assert(lib.pack('>i4', 10) == string.char(0, 0, 0, 10))
+assert(lib.pack('<i4', -10) == string.char(256-10, 256-1, 256-1, 256-1))
 
 assert(lib.unpack('<h', string.char(10, 0)) == 10)
 assert(lib.unpack('>h', string.char(0, 10)) == 10)
 assert(lib.unpack('<h', string.char(256-10, 256-1)) == -10)
 
-assert(lib.unpack('<l', string.char(10, 0, 0, 1)) == 10 + 2^(3*8))
-assert(lib.unpack('>l', string.char(0, 1, 0, 10)) == 10 + 2^(2*8))
-assert(lib.unpack('<l', string.char(256-10, 256-1, 256-1, 256-1)) == -10)
+assert(lib.unpack('<i4', string.char(10, 0, 0, 1)) == 10 + 2^(3*8))
+assert(lib.unpack('>i4', string.char(0, 1, 0, 10)) == 10 + 2^(2*8))
+assert(lib.unpack('<i4', string.char(256-10, 256-1, 256-1, 256-1)) == -10)
 
 -- limits
 lims = {{'B', 255}, {'b', 127}, {'b', -128},
@@ -115,17 +115,17 @@ x = lib.pack("!8 xd", 12)
 assert(lib.unpack("!8d", x, 3) == 12)
 
 
-assert(lib.pack("<lhbxxH", -2, 10, -10, 250) ==
+assert(lib.pack("<i4hbxxH", -2, 10, -10, 250) ==
   string.char(254, 255, 255, 255, 10, 0, 246, 0, 0, 250, 0))
 
-a,b,c,d = lib.unpack("<lhbxxH",
+a,b,c,d = lib.unpack("<i4hbxxH",
   string.char(254, 255, 255, 255, 10, 0, 246, 0, 0, 250, 0))
 assert(a == -2 and b == 10 and c == -10 and d == 250)
 
-assert(lib.pack(">lBxxH", -20, 10, 250) ==
+assert(lib.pack(">i4BxxH", -20, 10, 250) ==
                 string.char(255, 255, 255, 236, 10, 0, 0, 0, 250))
 
-a, b, c, d = lib.unpack(">lBxxH",
+a, b, c, d = lib.unpack(">i4BxxH",
                  string.char(255, 255, 255, 236, 10, 0, 0, 0, 250))
 assert(a == -20 and b == 10 and c == 250 and d == 10)
 
@@ -154,22 +154,22 @@ x = lib.pack("cc3b", s, s, 0)
 assert(x == "hhel\0")
 assert(lib.unpack("xxxxb", x) == 0)
 
-assert(lib.pack("<!l", 3) == string.char(3, 0, 0, 0))
-assert(lib.pack("<!xl", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
-assert(lib.pack("<!xxl", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
-assert(lib.pack("<!xxxl", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
+assert(lib.pack("<!i4", 3) == string.char(3, 0, 0, 0))
+assert(lib.pack("<!xi4", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
+assert(lib.pack("<!xxi4", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
+assert(lib.pack("<!xxxi4", 3) == string.char(0, 0, 0, 0, 3, 0, 0, 0))
 
-assert(lib.unpack("<!l", string.char(3, 0, 0, 0)) == 3)
-assert(lib.unpack("<!xl", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
-assert(lib.unpack("<!xxl", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
-assert(lib.unpack("<!xxxl", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
+assert(lib.unpack("<!i4", string.char(3, 0, 0, 0)) == 3)
+assert(lib.unpack("<!xi4", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
+assert(lib.unpack("<!xxi4", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
+assert(lib.unpack("<!xxxi4", string.char(0, 0, 0, 0, 3, 0, 0, 0)) == 3)
 
-assert(lib.pack("<!2 b l h", 2, 3, 5) == string.char(2, 0, 3, 0, 0, 0, 5, 0))
-a,b,c = lib.unpack("<!2blh", string.char(2, 0, 3, 0, 0, 0, 5, 0))
+assert(lib.pack("<!2 b i4 h", 2, 3, 5) == string.char(2, 0, 3, 0, 0, 0, 5, 0))
+a,b,c = lib.unpack("<!2bi4h", string.char(2, 0, 3, 0, 0, 0, 5, 0))
 assert(a == 2 and b == 3 and c == 5)
 
-assert(lib.pack("<!8blh", 2, 3, 5) == string.char(2, 0, 0, 0, 3, 0, 0, 0, 5, 0))
-a,b,c = lib.unpack("<!8blh", string.char(2, 0, 0, 0, 3, 0, 0, 0, 5, 0))
+assert(lib.pack("<!8bi4h", 2, 3, 5) == string.char(2, 0, 0, 0, 3, 0, 0, 0, 5, 0))
+a,b,c = lib.unpack("<!8bi4h", string.char(2, 0, 0, 0, 3, 0, 0, 0, 5, 0))
 assert(a == 2 and b == 3 and c == 5)
 
 assert(lib.pack(">sh", "aloi", 3) == "aloi\0\0\3")
