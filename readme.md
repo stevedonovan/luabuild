@@ -196,7 +196,7 @@ The result is over 450K, but it does work.
 
 ## Lua 5.2
 
-Of course, this package isn't useful unless your source is Lua 5.2-compatible. Most porting problems actually come from old Lua 5.0 deprecated features that have finally expired (like implicit `arg` table in varargs functions). The best approach to porting is to use a compatibility library - for instance, requiring the [pl.utils](https://github.com/stevedonovan/Penlight/blob/2a66849a99a088432272d90846c36447747a5574/lua/pl/utils.lua) module from Penlight (which can be used on its own without the rest of the library), or using David Manura's [lua-compat-env](https://github.com/davidm/lua-compat-env) module.
+Of course, this package isn't useful unless your source is Lua 5.2-compatible. Most porting problems actually come from old Lua 5.0 deprecated features that have finally expired (like implicit `arg` table in varargs functions). The best approach to porting is to use a compatibility library - for instance, requiring the [pl.utils](https://github.com/stevedonovan/Penlight/blob/master/lua/pl/utils.lua) module from Penlight (which can be used on its own without the rest of the library), or using David Manura's [lua-compat-env](https://github.com/davidm/lua-compat-env) module.
 
 Adapting luabuild for Lua 5.1.4 would be straightforward, although already this seems like an historical exercise.
 
@@ -206,7 +206,7 @@ There are of course limitations; it's unreasonable to try capture every possible
 
 However, a side-effect of this project has been the successful porting of a number of key projeccts to Lua 5.2, and I'll continue to port any small modules that seem to be useful for embedding purposes.
 
-Lua is famous for the small size of its core, and so it isn't surprising that most of the size of a packed Lua application is the Lua sources included. As an optimization, it would be good to include a source code shrinker (aka 'minimizer') like [LuaSrcDiet}(http://code.google.com/p/luasrcdiet/) in luabuild. But usually you would want to distribute programs as compressed files anyway (`ldoc.exe` in the above example goes down to 150K using `zip`).
+Lua is famous for the small size of its core, and so it isn't surprising that most of the size of a packed Lua application is the Lua sources included. As an optimization, it would be good to include a source code shrinker (aka 'minimizer') like [LuaSrcDiet](http://code.google.com/p/luasrcdiet/) in luabuild. But usually you would want to distribute programs as compressed files anyway (`ldoc.exe` in the above example goes down to 150K using `zip`).
 
 Another motivation for luabuild was to give `lake` a good solid exercise, and it has proved to be a flexible way to organize tricky builds. In particular, being able to partition the building of particular targets into groups makes it straightforward to customize the compilation of individual files.  For example, building the Lua static library was easier because `loadlib.c` could be done as a special case; it turns out that gcc 4.6's default optimization causes trouble with the `longjmp` error mechansion in `ldo.c`, at least on Windows for static builds - it was straightforward to treat this as a separate case that would not use the 'omit frame pointer' optimization.
 
