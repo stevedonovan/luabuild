@@ -1,0 +1,34 @@
+---
+-- LuaSignal - Signal handling library for Lua 5.1
+module "signal"
+---
+-- Set a signal handler.
+-- @param signal  String name of the signal to be handled (i.e. INT, ALRM)
+-- @param handler Function to be called when the signal is received. Also, the
+--                string "ignore" can be passed to cause the signal to be
+--                ignored, "default" to cause the signal to use Lua's default
+--                handler, and "cdefault" to cause the signal to use your
+--                system's default behavior (since Lua overrides some signal
+--                handlers to provide things like error messages and stack
+--                traces)
+function signal(signal, handler)
+---
+-- Pause program execution for a given amount of time. This is a thin wrapper
+-- around the alarm() POSIX function.
+-- @param  signal String name of the signal to be handled (i.e. INT, ALRM)
+-- @return See your system's man page for the alarm() function
+function alarm(signal)
+---
+-- Send a signal to a process. This is a thin wrapper around the kill() POSIX
+-- function.
+-- @param  pid    PID of the process to receive the signal
+-- @param  signal String name of the signal to be handled (i.e. INT, ALRM)
+-- @return See your system's man page for the kill() function
+function kill(pid, signal)
+---
+-- Send a signal to the current process. This is a thin wrapper around the
+-- raise() POSIX function.
+-- @param  signal String name of the signal to be handled (i.e. INT, ALRM)
+-- @return See your system's man page for the raise() function
+function raise(signal)
+

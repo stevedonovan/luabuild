@@ -22,6 +22,8 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <linenoise.h>
+#include <string.h>
+#include <errno.h>
 
 #define LN_COMPLETION_TYPE "linenoiseCompletions*"
 
@@ -31,7 +33,15 @@ static lua_State *completion_state;
 static int handle_ln_error(lua_State *L)
 {
     lua_pushnil(L);
-    return 1;
+    if (errno == EAGAIN) {
+        lua_pushliteral(L,"cancel");
+    } else
+    if (errno == ENOENT) {
+        lua_pushliteral(L,"eof");
+    } else {
+        lua_pushstring(L,strerror(errno));
+    }
+    return 2;
 }
 
 static int handle_ln_ok(lua_State *L)

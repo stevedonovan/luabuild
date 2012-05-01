@@ -1,0 +1,3 @@
+luabuild.test 'test-driver.lua'
+
+return c.library {LIBDIR..'signal',src='signal queue signames',args = ARGS}
