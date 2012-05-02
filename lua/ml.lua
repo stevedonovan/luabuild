@@ -5,6 +5,7 @@
 -- @module ml
 
 local ml = {}
+local Array
 
 ---------------------------------------------------
 -- String utilties.
@@ -27,33 +28,41 @@ function ml.split(s,re,n)
             local last = sub(s,i1)
             if last ~= '' then append(ls,last) end
             if #ls == 1 and ls[1] == '' then
-                return {}
+                return Array{}
             else
-                return ls
+                return Array(ls)
             end
         end
         append(ls,sub(s,i1,i2-1))
         if n and #ls == n then
             ls[#ls] = sub(s,i1)
-            return ls
+            return Array(ls)
         end
         i1 = i3+1
     end
 end
 
+ml.lua51 = _VERSION:match '5%.1$'
+
 --- escape any 'magic' characters in a string
 -- @param s The input string
 -- @return an escaped string
 function ml.escape(s)
-    return (s:gsub('[%-%.%+%[%]%(%)%$%^%%%?%*]','%%%1'))
+    local res = s:gsub('[%-%.%+%[%]%(%)%$%^%%%?%*]','%%%1')
+    if ml.lua51 then
+        res = res:gsub('%z','%%z')
+    end
+    return res
 end
 
 --- expand a string containing any ${var} or $var.
+-- However, you should pick _either one_ consistently!
 -- @param s the string
 -- @param subst either a table or a function (as in `string.gsub`)
 -- @return expanded string
 function ml.expand (s,subst)
-    local res = s:gsub('%${([%w_]+)}',subst)
+    local res,k = s:gsub('%${([%w_]+)}',subst)
+    if k > 0 then return res end
     return (res:gsub('%$([%w_]+)',subst))
 end
 
@@ -159,14 +168,12 @@ function tbuff (t,buff,k)
         buff[k] = v
         k = k + 1
     end
-    local function table_out (value,key)
+    local function table_out (value)
         if not buff.tables[value] then
             buff.tables[value] = true
             k = tbuff(value,buff,k)
         else
-            if key then append(key.."=<cycle>")
-            else append("<cycle>")
-            end
+            append("<cycle>")
         end
     end
     append "{"
@@ -184,15 +191,20 @@ function tbuff (t,buff,k)
     end
     for key,value in pairs(t) do
         if not used or not used[key] then
-            if type(value) ~= 'table' then
-                -- non-identifiers need []
-                if buff.stupid or type(key)~='string' or not key:match '^[%a_][%w_]*$' then
+            -- non-identifiers need []
+            if buff.stupid or type(key)~='string' or not key:match '^[%a_][%w_]*$' then
+                if type(key)=='table' then
+                    key = ml.tstring(key)
+                else
                     key = quote(key)
-                    key = "["..key.."]"
                 end
-                append(key.."="..quote(value))
+                key = "["..key.."]"
+            end
+            append(key..'=')
+            if type(value) ~= 'table' then
+                append(quote(value))
             else
-                table_out(value,key)
+                table_out(value)
             end
             append ","
         end
@@ -231,7 +243,7 @@ function ml.imap(f,t,...)
     for i = 1,#t do
         res[i] = f(t[i],...) or false
     end
-    return res
+    return Array(res)
 end
 
 --- map a function over two arrays.
@@ -249,7 +261,7 @@ function ml.imap2(f,t1,t2,...)
     for i = 1,n do
         res[i] = f(t1[i],t2[i],...) or false
     end
-    return res
+    return Array(res)
 end
 
 local function truth (x)
@@ -272,7 +284,7 @@ function ml.ifilter(t,pred,...)
             k = k + 1
         end
     end
-    return res
+    return Array(res)
 end
 
 --- find an item in a array using a predicate.
@@ -292,10 +304,17 @@ end
 --- return the index of an item in a array.
 -- @param t the array
 -- @param value item value
+-- @param cmp optional comparison function (default is `v==value`)
 -- @return index, otherwise `nil`
-function ml.indexof (t,value)
+function ml.indexof (t,value,cmp)
+    if cmp then
+        cmp = ml.function_arg(cmp)
+    end
     for i = 1,#t do
-        if t[i] == value then return i end
+        local v = t[i]
+        if cmp and cmp(v,value) or v == value then
+            return i
+        end
     end
 end
 
@@ -322,14 +341,14 @@ function ml.sub(t,i1,i2)
         res[k] = t[i]
         k = k + 1
     end
-    return res
+    return Array(res)
 end
 
 --- delete a range of values from a array.
 -- @param tbl the array
 -- @param start start index
 -- @param finish end index (like `ml.sub`)
-function ml.delete(tbl,start,finish)
+function ml.removerange(tbl,start,finish)
     finish = upper(tbl,finish)
     local count = finish - start + 1
     for k=start+count,#tbl do tbl[k-count]=tbl[k] end
@@ -343,7 +362,7 @@ end
 -- @param index start index in destination
 -- @param src source array
 -- @param overwrite write over values
-function ml.inject(dest,index,src,overwrite)
+function ml.insertvalues(dest,index,src,overwrite)
     local sz = #src
     if not overwrite then
         for i = #dest,index,-1 do dest[i+sz] = dest[i] end
@@ -351,6 +370,15 @@ function ml.inject(dest,index,src,overwrite)
     for i = 1,sz do
         dest[index+i-1] = src[i]
     end
+end
+
+--- extend a array using values from another.
+-- @param t the array to be extended
+-- @param other a array
+-- @return the extended array
+function ml.extend(t,other)
+    ml.insertvalues(t,#t+1,other)
+    return t
 end
 
 --- make a array of indexed values.
@@ -365,7 +393,7 @@ function ml.indexby(t,keys)
         res[k] = t[v] or false
         k = k + 1
     end
-    return res
+    return Array(res)
 end
 
 --- create an array of numbers from start to end.
@@ -419,17 +447,8 @@ function ml.import(t,...)
     return t
 end
 
---- extend a array using values from another.
--- @param t the array to be extended
--- @param other a array
--- @return the extended array
-function ml.extend(t,other)
-    local n = #t
-    for i = 1,#other do
-        t[n+i] = other[i]
-    end
-    return t
-end
+ml.update = ml.import
+
 
 --- make a table from a array of keys and a array of values.
 -- @param t a array of keys
@@ -461,7 +480,7 @@ function ml.keys(t)
         res[k] = key
         k = k + 1
     end
-    return res
+    return Array(res)
 end
 
 --- are all the keys of `other` in `t`?
@@ -469,17 +488,19 @@ end
 -- @param t a set
 -- @param other a possible subset
 -- @return true or false
-function ml.contains_keys(t,other)
+function ml.issubset(t,other)
     for k,v in pairs(other) do
         if t[k] == nil then return false end
     end
     return true
 end
 
+ml.contains_keys = ml.issubset
+
 --- return the number of keys in this table.
 -- @param t a table
 -- @return key count, (which is set cardinality)
-function ml.count_keys (t)
+function ml.count (t)
     local count = 0
     for k in pairs(t) do count = count + 1 end
     return count
@@ -490,37 +511,37 @@ end
 -- @param other a table
 -- @return true or false
 function ml.equal_keys(t,other)
-    return ml.contains_keys(t,other) and ml.contains_keys(other,t)
+    return ml.issubset(t,other) and ml.issubset(other,t)
 end
 
 local function makeT (...) return {...} end
 local function nop (x) return x end
 
---- collect the values of an iterator into a array.
--- @param iter an iterator returning one or more values
--- @param select (optional) Either a number of values to collect, or `true`
--- meaning collect values as a tuple, or a function to process/filter values.
--- @return a array of values.
--- @usage collect(math.random,3) == {0.23,0.75,0.13}
-function ml.collect (iter, select)
-    local F,count = nop
-    if type(select) == 'function' then
-        F = select
-    elseif select == true then
-        F = makeT
-    else
-        count = select
-    end
+local function collect_ (condn,iter,obj,...)
+    local n = type(condn) == 'number' and condn
+    local pred = ml.callable(condn) and condn
+    local kv = select('#',...) > 0
+    local start = select(1,...)
     local res,k = {},1
-    repeat
-        local v = F(iter())
-        if v == nil then break end
-        if v ~= false then
-            res[k] = v
-            k = k + 1
+    for key,value in iter,obj,start do
+        value = kv and value or key
+        res[k] = value
+        k = k + 1
+        if pred and not pred(value) then
+            break
+        elseif n and k > n then
+            break
         end
-    until count and k > count
-    return res
+    end
+    return Array(res)
+end
+
+function ml.collect (...)
+    return collect_(nil,...)
+end
+
+function ml.collect_until (n,...)
+    return collect_(n,...)
 end
 
 ---------------------------------------------------
@@ -599,6 +620,24 @@ function ml.function_arg(f)
     return f
 end
 
+--- 'memoize' a function (cache returned value for next call).
+-- This is useful if you have a function which is relatively expensive,
+-- but you don't know in advance what values will be required, so
+-- building a table upfront is wasteful/impossible.
+-- @param func a function of at least one argument
+-- @return a function with at least one argument, which is used as the key.
+function ml.memoize(func)
+    return setmetatable({}, {
+        __index = function(self, k, ...)
+            local v = func(k,...)
+            self[k] = v
+            return v
+        end,
+        __call = function(self, k) return self[k] end
+    })
+end
+
+
 ---------------------------------------------------
 -- Classes.
 -- @section class
@@ -653,7 +692,7 @@ end
 -- a simple Array class.
 -- @table Array
 
-local Array = ml.class()
+Array = ml.class()
 
 local C=ml.compose
 
@@ -690,7 +729,7 @@ end
 function Array.__eq(l1,l2)
     if #l1 ~= #l2 then return false end
     for i = 1,#l1 do
-        if t[i] ~= other[i] then return false end
+        if l1[i] ~= l2[i] then return false end
     end
     return true
 end
