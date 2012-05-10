@@ -422,10 +422,17 @@ local function replace_extension (path,ext)
 end
 path.replace_extension = replace_extension
 
--- return the path resulting from combining @p1,@p2 and optionally @p3 (an extension);
--- if @p2 is already an absolute path, then it returns @p2
-function join(p1,p2,p3)
-    if p3 then p2 = p2 .. p3 end -- extension part
+-- return the path resulting from combining the path;
+-- if the second is already an absolute path, then it returns it
+function join(p1,p2,...)
+    if select('#',...) > 0 then
+        local p = path.join(p1,p2)
+        local args = {...}
+        for i = 1,#args do
+            p = join(p,args[i])
+        end
+        return p
+    end
     if isabs(p2) then return p2 end
     local endc = at(p1,#p1)
     if endc ~= '/' and endc ~= '\\' then
@@ -1601,16 +1608,19 @@ local function process_args()
         else
             if not no_synth_target and a:find('%.') and exists(a) then
                 -- @doc 'synth-target' unless specifically switched off with '-t',
+                -- Lua scripts are run in the context of Lake
                 if extension_of(a) == '.lua' then
-                    local args = {}
-                    for k = i+1,#arg do append(args,arg[k]) end
-                    args[0] = a
-                    args[-1] = LUA_EXE
-                    arg = args
+                    local new_arg = {}
+                    for k = i+1,#arg do
+                        append(new_arg,arg[k])
+                    end
+                    new_arg[0] = a
+                    new_arg[-1] = arg[-1]
+                    arg = new_arg
                     dofile(a)
                     os.exit(0)
                 end
-                -- see if we have a suitable rule for processing
+                -- otherwise, see if we have a suitable rule for processing
                 -- an existing file with this extension.
                 local _,_,rule = lake.deduce_tool(a,true)
                 if _ then
@@ -1924,10 +1934,9 @@ function lake.set_flags(parms)
             end
             -- we default to stripping the executable, unless strip is explicitly specified
             -- and we're not exporting symbols or doing a debug build.
-            -- seems ok: not args.export and
             -- Darwin, however, ceases to export symbols from executables, and doesn't
             -- understand stripping shared libraries.
-            if  PLAT ~= "Darwin" and not args.debug and args.strip == nil then
+            if PLAT ~= "Darwin" and not args.debug and args.strip == nil then
                 args.strip = true
             end
             return flags
@@ -2147,7 +2156,7 @@ local function _compile(name,compile_deps,lang)
     if lang == c99 and CC == 'cl' then
         cflags = cflags .. ' /TP'
     end
-    compile_deps = args.compile_deps or args.headers
+    compile_deps = compile_deps or args.compile_deps or args.headers
     -- @doc 'defines' any preprocessor defines required
     if args.defines then
         cflags = cflags..concat_arg(lang.DEFDEF,args.defines,' ')
@@ -2489,6 +2498,7 @@ local program_fields = {
     rules=true,inputs=true, -- explicit set of compile targets
     shared=true,dll=true, -- a DLL or .so (with lang.library)
     deps=true, -- explicit dependencies of a target (or subsequent values in table)
+    compile_deps=true, -- explicit dependencies of source files
     export=true, -- this executable exports its symbols
     dynamic=true, -- link dynamically against runtime (default true for GCC, override for MSVC)
     static=true, -- statically link this target
@@ -2700,7 +2710,7 @@ local function _program(ptype,name,deps,lang)
             -- the source files are all compiled using this header
             args.flags = concat(args.flags,cpp_ch.use_compiled_header..args.precompiled_header)
         end
-        cr = _compile(args,deps,lang)
+        cr = _compile(args,args.compile_deps,lang)
         cr.output_dir = odir
     end
 
