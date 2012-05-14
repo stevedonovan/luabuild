@@ -378,7 +378,7 @@ end
 if config.readline == 'linenoise' and not WINDOWS then
     local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
-    incdir = (incdir or '')..' ../linenoise'
+    incdir = (incdir or '')..' linenoise'
 end
 
 local prog,llua = c.program{BINDIR..name,
