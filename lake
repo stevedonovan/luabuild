@@ -2163,7 +2163,7 @@ local function _compile(name,compile_deps,lang)
     end
     -- @doc 'incdir' specifying the path for finding include files
     if args.incdir then
-        cflags = cflags..concat_arg(lang.incdir,args.incdir,' ',args.base)
+        cflags = cflags..concat_arg(lang.incdir,args.incdir,' ') --,args.base)
     end
 
     if lang.flags_handler then
