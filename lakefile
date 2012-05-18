@@ -218,6 +218,8 @@ if not WINDOWS then
 else
     if config.dll then -- ensure that Lua API is exported
         defs = compat..'LUA_BUILD_AS_DLL'
+    else
+        defs = compat
     end
     ldefs = defs
 end

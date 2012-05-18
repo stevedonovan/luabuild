@@ -123,3 +123,4 @@ function _M.connect(host, port, timeout, create)
     return base.setmetatable({c = c}, metat)
 end
 
+return _M

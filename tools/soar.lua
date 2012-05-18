@@ -475,7 +475,7 @@ if arg then
 	end
     end
     if not scriptname then usage("no scriptname provided") end
-    local lua = arg[-1]
+    local lua = arg[-1] or 'lua'
     arg = ml.sub(arg, i+1)
     arg[0] = scriptname
     arg[-1] = lua

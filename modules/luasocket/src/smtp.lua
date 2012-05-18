@@ -251,3 +251,5 @@ _M.send = socket.protect(function(mailt)
     s:quit()
     return s:close()
 end)
+
+return _M
