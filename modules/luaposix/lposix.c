@@ -2071,8 +2071,8 @@ static int Pgetopt_long(lua_State *L)
 /* Signals */
 
 static lua_State *signalL;
-static int signalno;
-static unsigned signals;
+static int signalcount = 0;
+static unsigned signals[26];
 
 #define sigmacros_map \
 	MENTRY( _DFL ) \
@@ -2097,6 +2097,7 @@ static void (*Fsigmacros[])(int) =
 static void sig_handle (lua_State *L, lua_Debug *ar) {
 	/* Block all signals until we have run the Lua signal handler */
 	sigset_t mask, oldmask;
+    int signalno;
 	sigfillset(&mask);
 	sigprocmask(SIG_SETMASK, &mask, &oldmask);
 
@@ -2108,24 +2109,27 @@ static void sig_handle (lua_State *L, lua_Debug *ar) {
 	lua_pushlightuserdata(L, &signalL);
 	lua_rawget(L, LUA_REGISTRYINDEX);
 
-	/* Get handler */
-	lua_pushinteger(L, signalno);
-	lua_gettable(L, -2);
+    /* Empty the signal queue */
+    while (signalcount--) {
+        signalno = signals[signalcount];
+        /* Get handler */
+        lua_pushinteger(L, signalno);
+        lua_gettable(L, -2);
 
-	while (signals--) {
 		/* Call handler with signal number */
 		lua_pushinteger(L, signalno);
 		lua_pcall(L, 1, 0, 0);
 		/* FIXME: Deal with error */
 	}
+    signalcount = 0;
 
 	/* Having run the Lua signal handler, restore original signal mask */
 	sigprocmask(SIG_SETMASK, &oldmask, NULL);
 }
 
 static void sig_postpone (int i) {
-	signals++; /* Increment signal counter in case signal is re-raised before handler is run. */
-	signalno = i;
+    signals[signalcount++] = i;
+	/* Increment signal counter in case signal is re-raised before handler is run. */
 	lua_sethook(signalL, sig_handle, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);
 }
 
