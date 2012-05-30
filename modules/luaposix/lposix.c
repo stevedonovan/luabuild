@@ -1,6 +1,6 @@
 /*
 * lposix.c
-* POSIX library for Lua 5.1.
+* POSIX library for Lua 5.1/5.2.
 * (c) Reuben Thomas (maintainer) <rrt@sc3d.org> 2010-2012
 * (c) Natanael Copa <natanael.copa@gmail.com> 2008-2010
 * Clean up and bug fixes by Leo Razoumov <slonik.az@gmail.com> 2006-10-11
@@ -10,14 +10,6 @@
 */
 
 #include <config.h>
-
-#include <sys/stat.h>
-#include <sys/times.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
-#include <sys/wait.h>
-#include <sys/resource.h>
-#include <sys/time.h>
 
 #include <ctype.h>
 #include <dirent.h>
@@ -39,6 +31,19 @@
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
+#include <sys/stat.h>
+#include <sys/times.h>
+#include <sys/types.h>
+#include <sys/utsname.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#if HAVE_CRYPT_H
+#  include <crypt.h>
+#endif
+#if HAVE_SYS_STATVFS_H
+#  include <sys/statvfs.h>
+#endif
 
 #ifndef VERSION
 #  define VERSION "unknown"
@@ -66,14 +71,6 @@
 #define LPOSIX_STR_1(_s)	LPOSIX__STR_1(_s)
 
 #include "lua52compat.h"
-
-/* not defined in FreeBSD */
-#ifndef ENODATA
-#define ENODATA ENOMSG
-#define ENOSTR ENOMSG
-#define ENOSR ENOMSG
-#define ETIME ENOMSG
-#endif
 
 /* ISO C functions missing from the standard Lua libraries. */
 
@@ -416,23 +413,29 @@ static int Pset_errno(lua_State *L)
 
 static int Pbasename(lua_State *L)		/** basename(path) */
 {
-	char b[PATH_MAX];
+	char *b;
 	size_t len;
+	void *ud;
+	lua_Alloc lalloc = lua_getallocf(L, &ud);
 	const char *path = luaL_checklstring(L, 1, &len);
-	if (len>=sizeof(b))
-		luaL_argerror(L, 1, "too long");
+	if ((b = lalloc(ud, NULL, 0, strlen(path) + 1)) == NULL)
+		return pusherror(L, "lalloc");
 	lua_pushstring(L, basename(strcpy(b,path)));
+	lalloc(ud, b, 0, 0);
 	return 1;
 }
 
 static int Pdirname(lua_State *L)		/** dirname(path) */
 {
-	char b[PATH_MAX];
+	char *b;
 	size_t len;
+	void *ud;
+	lua_Alloc lalloc = lua_getallocf(L, &ud);
 	const char *path = luaL_checklstring(L, 1, &len);
-	if (len>=sizeof(b))
-		luaL_argerror(L, 1, "too long");
+	if ((b = lalloc(ud, NULL, 0, strlen(path) + 1)) == NULL)
+		return pusherror(L, "lalloc");
 	lua_pushstring(L, dirname(strcpy(b,path)));
+	lalloc(ud, b, 0, 0);
 	return 1;
 }
 
@@ -545,11 +548,19 @@ static int Pfiles(lua_State *L)			/** files([path]) */
 
 static int Pgetcwd(lua_State *L)		/** getcwd() */
 {
-	char b[PATH_MAX];
-	if (getcwd(b, sizeof(b)) == NULL)
-		return pusherror(L, ".");
-	lua_pushstring(L, b);
-	return 1;
+	long size = pathconf(".", _PC_PATH_MAX);
+	void *ud;
+	lua_Alloc lalloc = lua_getallocf(L, &ud);
+	char *b, *ret;
+	if (size == -1)
+		size = _POSIX_PATH_MAX; /* FIXME: Retry if this is not long enough */
+	if ((b = lalloc(ud, NULL, 0, (size_t)size + 1)) == NULL)
+		return pusherror(L, "lalloc");
+	ret = getcwd(b, (size_t)size);
+	if (ret != NULL)
+		lua_pushstring(L, b);
+	lalloc(ud, b, 0, 0);
+	return (ret == NULL) ? pusherror(L, ".") : 1;
 }
 
 static int Pmkdir(lua_State *L)			/** mkdir(path) */
@@ -587,13 +598,20 @@ static int Plink(lua_State *L)			/** link(old,new,[symbolic]) */
 
 static int Preadlink(lua_State *L)		/** readlink(path) */
 {
-	char b[PATH_MAX];
+	char *b;
+	struct stat s;
 	const char *path = luaL_checkstring(L, 1);
-	int n = readlink(path, b, sizeof(b));
-	if (n==-1)
+	void *ud;
+	lua_Alloc lalloc = lua_getallocf(L, &ud);
+	if (stat(path, &s))
 		return pusherror(L, path);
-	lua_pushlstring(L, b, n);
-	return 1;
+	if ((b = lalloc(ud, NULL, 0, s.st_size + 1)) == NULL)
+		return pusherror(L, "lalloc");
+	ssize_t n = readlink(path, b, s.st_size);
+	if (n != -1)
+		lua_pushlstring(L, b, n);
+	lalloc(ud, b, 0, 0);
+	return (n == -1) ? pusherror(L, path) : 1;
 }
 
 static int Paccess(lua_State *L)		/** access(path,[mode]) */
@@ -636,17 +654,42 @@ static int Pmkstemp(lua_State *L)                 /** mkstemp(path) */
 	int res;
 
 	if ((tmppath = lalloc(ud, NULL, 0, strlen(path) + 1)) == NULL)
-		return 0;
+		return pusherror(L, "lalloc");
 	strcpy(tmppath, path);
 	res = mkstemp(tmppath);
 
 	if (res == -1)
+	{
+		lalloc(ud, tmppath, 0, 0);
 		return pusherror(L, path);
+	}
 
 	lua_pushinteger(L, res);
 	lua_pushstring(L, tmppath);
 	lalloc(ud, tmppath, 0, 0);
 	return 2;
+}
+
+static int Pmkdtemp(lua_State *L)		/** mkdtemp(path) */
+{
+	const char *path = luaL_checkstring(L, 1);
+	void *ud;
+	lua_Alloc lalloc = lua_getallocf(L, &ud);
+	char *tmppath;
+	char *res;
+
+	if ((tmppath = lalloc(ud, NULL, 0, strlen(path) + 1)) == NULL)
+		return pusherror(L, "lalloc");
+	strcpy(tmppath, path);
+	res = mkdtemp(tmppath);
+
+	if (res == NULL) {
+		lalloc(ud, tmppath, 0, 0);
+		return pusherror(L, path);
+	}
+	lua_pushstring(L, tmppath);
+	lalloc(ud, tmppath, 0, 0);
+	return 1;
 }
 
 static int runexec(lua_State *L, int use_shell)
@@ -1058,72 +1101,16 @@ static int Pumask(lua_State *L)			/** umask([mode]) */
 	return 1;
 }
 
-/* Darwin fails to define O_RSYNC. */
-#ifndef O_RSYNC
-#define O_RSYNC 0
-#endif
-
-/* Not available for OS X 10.4 */
-#ifndef O_DSYNC
-#define O_DSYNC 0
-#endif
-
-#define OFLAGS_MAP \
-	MENTRY( _RDONLY   ) \
-	MENTRY( _WRONLY   ) \
-	MENTRY( _RDWR     ) \
-	MENTRY( _APPEND   ) \
-	MENTRY( _CREAT    ) \
-	MENTRY( _DSYNC    ) \
-	MENTRY( _EXCL     ) \
-	MENTRY( _NOCTTY   ) \
-	MENTRY( _NONBLOCK ) \
-	MENTRY( _RSYNC    ) \
-	MENTRY( _SYNC     ) \
-	MENTRY( _TRUNC    )
-
-static const int Koflag[] =
-{
-#define MENTRY(_f) LPOSIX_SPLICE(O, _f),
-	OFLAGS_MAP
-#undef MENTRY
-	-1
-};
-
-static const char *const Soflag[] =
-{
-#define MENTRY(_f) LPOSIX_STR_1(_f),
-	OFLAGS_MAP
-#undef MENTRY
-	NULL
-};
-
-static int make_oflags(lua_State *L, int i)
-{
-	int oflags = 0;
-	lua_pushnil(L);
-	while (lua_next(L, i) != 0) {
-		int flag = lookup_symbol(Soflag, Koflag, luaL_checkstring(L, -1));
-		if (flag == -1)
-			return -1;
-		oflags |= flag;
-		lua_pop(L, 1);
-	}
-	return oflags;
-}
-
 static int Popen(lua_State *L)			/** open(path, flags[, mode]) */
 {
 	const char *path = luaL_checkstring(L, 1);
-	int flags;
+	int flags = luaL_checkint(L, 2);
 	mode_t mode;
-	const char *modestr = luaL_optstring(L, 3, NULL);
-	luaL_checktype(L, 2, LUA_TTABLE);
-	flags = make_oflags(L, 2);
-	if (flags == -1)
-		luaL_argerror(L, 2, "bad flags");
-	if (modestr && mode_munch(&mode, modestr))
-		luaL_argerror(L, 3, "bad mode");
+	if (flags & O_CREAT) {
+		const char *modestr = luaL_checkstring(L, 3);
+		if (mode_munch(&mode, modestr))
+			luaL_argerror(L, 3, "bad mode");
+	}
 	return pushresult(L, open(path, flags, mode), path);
 }
 
@@ -1342,27 +1329,26 @@ static int Pgetpasswd(lua_State *L)		/** getpasswd(name|id,[sel]) */
 
 static int Pgetgroup(lua_State *L)		/** getgroup(name|id) */
 {
-	struct group *g=NULL;
+	struct group *g = NULL;
 	if (lua_isnumber(L, 1))
 		g = getgrgid((gid_t)lua_tonumber(L, 1));
 	else if (lua_isstring(L, 1))
 		g = getgrnam(lua_tostring(L, 1));
 	else
 		luaL_typerror(L, 1, "string or number");
-	if (g==NULL)
+	if (g == NULL)
 		lua_pushnil(L);
-	else
-	{
+	else {
 		int i;
 		lua_newtable(L);
 		lua_pushstring(L, g->gr_name);
 		lua_setfield(L, -2, "name");
 		lua_pushinteger(L, g->gr_gid);
 		lua_setfield(L, -2, "gid");
-		for (i=0; g->gr_mem[i]!=NULL; i++)
+		for (i = 0; g->gr_mem[i] != NULL; i++)
 		{
 			lua_pushstring(L, g->gr_mem[i]);
-			lua_rawseti(L, -2, i);
+			lua_rawseti(L, -2, i + 1);
 		}
 	}
 	return 1;
@@ -1512,6 +1498,65 @@ static int Pstat(lua_State *L)			/** stat(path,[options]) */
 		return pusherror(L, path);
 	return doselection(L, 2, Sstat, Fstat, &s);
 }
+
+#if defined (HAVE_STATVFS)
+static void Fstatvfs(lua_State *L, int i, const void *data)
+{
+	const struct statvfs *s=data;
+	switch (i)
+	{
+	case 0:
+		lua_pushinteger(L, s->f_bsize);
+		break;
+	case 1:
+		lua_pushinteger(L, s->f_frsize);
+		break;
+	case 2:
+		lua_pushnumber(L, s->f_blocks);
+		break;
+	case 3:
+		lua_pushnumber(L, s->f_bfree);
+		break;
+	case 4:
+		lua_pushnumber(L, s->f_bavail);
+		break;
+	case 5:
+		lua_pushnumber(L, s->f_files);
+		break;
+	case 6:
+		lua_pushnumber(L, s->f_ffree);
+		break;
+	case 7:
+		lua_pushnumber(L, s->f_favail);
+		break;
+	case 8:
+		lua_pushinteger(L, s->f_fsid);
+		break;
+	case 9:
+		lua_pushinteger(L, s->f_flag);
+		break;
+	case 10:
+		lua_pushinteger(L, s->f_namemax);
+		break;
+	}
+}
+
+static const char *const Sstatvfs[] =
+{
+	"bsize", "frsize", "blocks", "bfree", "bavail",
+	"files", "ffree", "favail", "fsid", "flag", "namemax",
+	NULL
+};
+
+static int Pstatvfs(lua_State *L)		/** statvfs(path,[options]) */
+{
+	struct statvfs s;
+	const char *path=luaL_checkstring(L, 1);
+	if (statvfs(path,&s)==-1)
+		return pusherror(L, path);
+	return doselection(L, 2, Sstatvfs, Fstatvfs, &s);
+}
+#endif
 
 static int Pfcntl(lua_State *L)
 {
@@ -1672,7 +1717,9 @@ static int Psetlogmask(lua_State* L)            /** setlogmask(priority...) */
 
 	return pushresult(L, setlogmask(mask),"setlogmask");
 }
+#endif
 
+#if defined(HAVE_CRYPT)
 static int Pcrypt(lua_State *L)		/** crypt(string,salt) */
 {
 	const char *str, *salt;
@@ -1699,7 +1746,7 @@ static int Pcrypt(lua_State *L)		/** crypt(string,salt) */
  *	A negative or nil limit will be replaced by the current
  *	limit, obtained by calling getrlimit().
  *
- *	Valid resouces are:
+ *	Valid resources are:
  *		"core", "cpu", "data", "fsize",
  *		"nofile", "stack", "as"
  *
@@ -2071,8 +2118,10 @@ static int Pgetopt_long(lua_State *L)
 /* Signals */
 
 static lua_State *signalL;
-static int signalcount = 0;
-static unsigned signals[26];
+#define SIGNAL_QUEUE_MAX 25
+static volatile sig_atomic_t signal_pending, defer_signal;
+static volatile sig_atomic_t signal_count = 0;
+static volatile sig_atomic_t signals[SIGNAL_QUEUE_MAX];
 
 #define sigmacros_map \
 	MENTRY( _DFL ) \
@@ -2097,7 +2146,6 @@ static void (*Fsigmacros[])(int) =
 static void sig_handle (lua_State *L, lua_Debug *ar) {
 	/* Block all signals until we have run the Lua signal handler */
 	sigset_t mask, oldmask;
-    int signalno;
 	sigfillset(&mask);
 	sigprocmask(SIG_SETMASK, &mask, &oldmask);
 
@@ -2110,27 +2158,39 @@ static void sig_handle (lua_State *L, lua_Debug *ar) {
 	lua_rawget(L, LUA_REGISTRYINDEX);
 
     /* Empty the signal queue */
-    while (signalcount--) {
-        signalno = signals[signalcount];
+    while (signal_count--) {
+        sig_atomic_t signalno = signals[signal_count];
         /* Get handler */
         lua_pushinteger(L, signalno);
         lua_gettable(L, -2);
-
+	
 		/* Call handler with signal number */
 		lua_pushinteger(L, signalno);
-		lua_pcall(L, 1, 0, 0);
-		/* FIXME: Deal with error */
+		if (lua_pcall(L, 1, 0, 0) != 0) 
+            fprintf(stderr,"error in signal handler %d: %s\n",signalno,lua_tostring(L,-1));
 	}
-    signalcount = 0;
-
-	/* Having run the Lua signal handler, restore original signal mask */
+    signal_count = 0;  /* reset global to initial state */
+    
+	/* Having run the Lua signal handler, restore original signal mask */    
 	sigprocmask(SIG_SETMASK, &oldmask, NULL);
 }
 
 static void sig_postpone (int i) {
-    signals[signalcount++] = i;
-	/* Increment signal counter in case signal is re-raised before handler is run. */
+    if (defer_signal) {
+        signal_pending = i;
+        return;
+    }
+    if (signal_count == SIGNAL_QUEUE_MAX)
+        return;        
+    defer_signal++;
+    /* Queue signals */
+    signals[signal_count] = i;
+    signal_count ++;    
 	lua_sethook(signalL, sig_handle, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);
+    defer_signal--;
+    /* re-raise any pending signals */
+    if (defer_signal == 0 && signal_pending != 0)
+        raise (signal_pending);
 }
 
 static int sig_handler_wrap (lua_State *L) {
@@ -2147,7 +2207,7 @@ static int Psignal (lua_State *L)		/** old_handler = signal(signum, handler) */
 	int sig = luaL_checkinteger(L, 1), ret;
 	void (*handler)(int) = sig_postpone;
 
-        /* Check handler is OK */
+	/* Check handler is OK */
 	switch (lua_type(L, 2)) {
 	case LUA_TNIL:
 	case LUA_TSTRING:
@@ -2189,11 +2249,11 @@ static int Psignal (lua_State *L)		/** old_handler = signal(signum, handler) */
 		lua_pushstring(L, "SIG_DFL");
 	else if (oldsa.sa_handler == SIG_IGN)
 		lua_pushstring(L, "SIG_IGN");
-        else {
+	else {
 		lua_pushinteger(L, sig);
 		lua_pushlightuserdata(L, oldsa.sa_handler);
 		lua_pushcclosure(L, sig_handler_wrap, 2);
-        }
+	}
 	return 1;
 }
 
@@ -2213,7 +2273,7 @@ static const luaL_Reg R[] =
 	MENTRY( Pclock_gettime	),
 #endif
 	MENTRY( Pclose		),
-#if _POSIX_VERSION >= 200112L
+#if defined (HAVE_CRYPT)
 	MENTRY( Pcrypt		),
 #endif
 	MENTRY( Pctermid	),
@@ -2252,6 +2312,7 @@ static const luaL_Reg R[] =
 	MENTRY( Pmkdir		),
 	MENTRY( Pmkfifo		),
 	MENTRY( Pmkstemp	),
+	MENTRY( Pmkdtemp	),
 	MENTRY( Pmktime		),
 	MENTRY( Popen		),
 	MENTRY( Ppathconf	),
@@ -2289,6 +2350,9 @@ static const luaL_Reg R[] =
 	MENTRY( Pcloselog	),
 	MENTRY( Psetlogmask	),
 #endif
+#if defined (HAVE_STATVFS)
+	MENTRY( Pstatvfs	),
+#endif
 #undef MENTRY
 	{NULL,	NULL}
 };
@@ -2314,9 +2378,29 @@ LUALIB_API int luaopen_posix_c (lua_State *L)
 	set_integer_const( "FOPEN_MAX",		FOPEN_MAX	);
 	set_integer_const( "FILENAME_MAX",	FILENAME_MAX	);
 
-	/* from unistd.h */
+	/* Darwin fails to define O_RSYNC. */
+#ifndef O_RSYNC
+#define O_RSYNC 0
+#endif
+
+	/* file creation & status flags */
+#define MENTRY(_f) set_integer_const(LPOSIX_STR_1(LPOSIX_SPLICE(_O_, _f)), LPOSIX_SPLICE(O_, _f))
+	MENTRY( RDONLY   );
+	MENTRY( WRONLY   );
+	MENTRY( RDWR     );
+	MENTRY( APPEND   );
+	MENTRY( CREAT    );
+	MENTRY( DSYNC    );
+	MENTRY( EXCL     );
+	MENTRY( NOCTTY   );
+	MENTRY( NONBLOCK );
+	MENTRY( RSYNC    );
+	MENTRY( SYNC     );
+	MENTRY( TRUNC    );
+#undef MENTRY
+
+	/* Miscellaneous */
 	set_integer_const( "WNOHANG",		WNOHANG		);
-	set_integer_const( "O_NONBLOCK",	O_NONBLOCK	);
 
 	/* errno values */
 #define MENTRY(_e) set_integer_const(LPOSIX_STR_1(LPOSIX_SPLICE(_E, _e)), LPOSIX_SPLICE(E, _e))
@@ -2360,7 +2444,6 @@ LUALIB_API int luaopen_posix_c (lua_State *L)
 	MENTRY( NETUNREACH	);
 	MENTRY( NFILE		);
 	MENTRY( NOBUFS		);
-	MENTRY( NODATA		);
 	MENTRY( NODEV		);
 	MENTRY( NOENT		);
 	MENTRY( NOEXEC		);
@@ -2369,8 +2452,6 @@ LUALIB_API int luaopen_posix_c (lua_State *L)
 	MENTRY( NOMSG		);
 	MENTRY( NOPROTOOPT	);
 	MENTRY( NOSPC		);
-	MENTRY( NOSR		);
-	MENTRY( NOSTR		);
 	MENTRY( NOSYS		);
 	MENTRY( NOTCONN		);
 	MENTRY( NOTDIR		);
@@ -2390,7 +2471,6 @@ LUALIB_API int luaopen_posix_c (lua_State *L)
 	MENTRY( ROFS		);
 	MENTRY( SPIPE		);
 	MENTRY( SRCH		);
-	MENTRY( TIME		);
 	MENTRY( TIMEDOUT	);
 	MENTRY( TXTBSY		);
 	MENTRY( WOULDBLOCK	);
