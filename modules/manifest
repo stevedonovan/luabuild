@@ -11,7 +11,6 @@ lsqlite3 = "lsqlite3_svn08"
 linenoise = "lua-linenoise"
 lxp = "luaexpat/src"
 struct = "struct"
-signal = "luasignal/src"
 
 
 
