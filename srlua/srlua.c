@@ -6,8 +6,13 @@
 * This code is hereby placed in the public domain.
 */
 
+#define MAX_PATH 256
 #ifdef _WIN32
-#include <windows.h>
+#define PATHSEP ";"
+#define DIRSEP "\\"
+#else
+#define PATHSEP ":"
+#define DIRSEP "/"
 #endif
 
 #include <errno.h>
@@ -26,6 +31,36 @@ typedef struct
  size_t size;
  char buff[512];
 } State;
+
+static void fatal(const char* progname, const char* message)
+{
+ fprintf(stderr,"%s: %s\n",progname,message);
+ exit(EXIT_FAILURE);
+}
+
+static const char *full_path(const char *name)
+{
+   static char buffer[MAX_PATH];    
+    if (name == NULL)
+        return NULL;
+    if (strchr(name,DIRSEP)) { // absolute or relative path
+        return name;
+    } else { // hunt in system path
+        const char *path = getenv("PATH");
+        const char *dir = strtok(path,PATHSEP);
+        while (1) {
+            FILE *in;
+            sprintf(buffer,"%s/%s",dir,name);
+            in = fopen(buffer,"r");
+            if (in != NULL) {
+                fclose(in);
+                return buffer;
+            }
+            dir = strtok(NULL,PATHSEP);            
+        }    
+    }  
+    return NULL;
+}
 
 static const char *myget(lua_State *L, void *data, size_t *size)
 {
@@ -61,10 +96,13 @@ static int pmain(lua_State *L)
  int argc=lua_tointeger(L,1);
  char** argv=lua_touserdata(L,2);
  int i;
+ const char *name = full_path(argv[0]);
+ if (name==NULL) fatal("srlua","cannot locate this executable");
+    
  lua_gc(L,LUA_GCSTOP,0);
  luaL_openlibs(L);
  lua_gc(L,LUA_GCRESTART,0);
- load(L,argv[0]);
+ load(L,name);
  lua_createtable(L,argc,1);
  for (i=0; i<argc; i++)
  {
@@ -81,24 +119,11 @@ static int pmain(lua_State *L)
  return 0;
 }
 
-static void fatal(const char* progname, const char* message)
-{
-#ifdef _WIN32
- MessageBox(NULL,message,progname,MB_ICONERROR | MB_OK);
-#else
- fprintf(stderr,"%s: %s\n",progname,message);
-#endif
- exit(EXIT_FAILURE);
-}
+
 
 int main(int argc, char *argv[])
 {
  lua_State *L;
-#ifdef _WIN32
- char name[MAX_PATH];
- argv[0]= GetModuleFileName(NULL,name,sizeof(name)) ? name : NULL;
-#endif
- if (argv[0]==NULL) fatal("srlua","cannot locate this executable");
  L=luaL_newstate();
  if (L==NULL) fatal(argv[0],"not enough memory for state");
  lua_pushcfunction(L,&pmain);
