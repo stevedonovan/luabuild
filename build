@@ -54,7 +54,7 @@ else # have to bootstrap!
         fi
         rm lua.o loadlib.o
         popd
-        , setpath
+        . setpath
     fi
 fi
 
