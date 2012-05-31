@@ -1,0 +1,70 @@
+LUA="lua"
+CC="gcc"
+
+while [ $# -gt 0 ]
+do
+    case "$1" in
+        (*=*) eval $1;;
+        -h|--help)  echo "optionally LUA=lua,  PLAT=plat, CC=cc"; exit;;
+    esac
+    shift
+done
+
+quiet () {
+    cmd=$1
+    shift
+    env $cmd $* 2>&1  > /dev/null
+}
+
+if ! quiet which $CC
+then
+    echo "compiler $CC cannot be found"
+    exit
+else
+    if [ "$CC" != "gcc" ]
+    then
+        CC="CC=$CC"
+    else
+        CC=''
+    fi
+fi
+
+if quiet which $LUA
+then
+    if ! quiet $LUA -llfs -e "print(1)"
+    then
+        echo "Please install LuaFileSystem"
+        exit
+    fi
+else # have to bootstrap!
+    echo "$LUA not found, bootstrapping"
+    if [ -z "$PLAT" ]
+    then
+        case "$(uname)" in
+             "Linux" ) PLAT=linux;;
+             "Darwin" ) PLAT=macosx;;
+             *            ) PLAT=posix;;
+        esac
+        pushd lua-5.2.0
+        if ! make $PLAT
+        then
+            echo "bootstrap build borked"
+            exit
+        fi
+        rm lua.o loadlib.o
+        popd
+       
+    fi
+fi
+
+# now let Lake do the hard part ...
+env $LUA lake $CC
+env $LUA lake install.lua
+
+ export PATH="$(pwd)/bin:$PATH"
+ 
+ # and run the standard tests
+ env $LUA lake -f test.lake
+
+
+

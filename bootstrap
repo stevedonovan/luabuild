@@ -1,3 +1,0 @@
-cd lua-5.2.0
-make $1
-rm lua.o
