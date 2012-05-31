@@ -1,3 +1,3 @@
-call srlua -o flake lake
+call srlua -m lfs -o flake lake
 flake -h
-%LAKE% -f test.lake
+rem %LAKE% -f test.lake
