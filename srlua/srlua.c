@@ -9,10 +9,12 @@
 #define MAX_PATH 256
 #ifdef _WIN32
 #define PATHSEP ";"
-#define DIRSEP "\\"
+#define DIRSEP '\\'
+#define EXE ".exe"
 #else
 #define PATHSEP ":"
-#define DIRSEP "/"
+#define DIRSEP '/'
+#define EXE ""
 #endif
 
 #include <errno.h>
@@ -38,27 +40,41 @@ static void fatal(const char* progname, const char* message)
  exit(EXIT_FAILURE);
 }
 
-static const char *full_path(const char *name)
+static const char *search_path(const char *name)
 {
-   static char buffer[MAX_PATH];    
+    static char buffer[MAX_PATH], xname[MAX_PATH];
+    int len;
     if (name == NULL)
         return NULL;
+    strcpy(xname,name);
+#ifdef _WIN32
+    if (! strchr(name,'.')) {
+        strcat(xname,EXE);
+    }
+#endif
     if (strchr(name,DIRSEP)) { // absolute or relative path
-        return name;
+        return xname;
     } else { // hunt in system path
-        const char *path = getenv("PATH");
-        const char *dir = strtok(path,PATHSEP);
-        while (1) {
+        char path[2048];
+        const char *dir;
+        strcpy(path,getenv("PATH"));
+#ifdef _WIN32
+        // in Windows, current directory is on the path by default!
+        strcat(path,";.");
+#endif
+        dir = strtok(path,PATHSEP);
+        while (dir != NULL) {
             FILE *in;
-            sprintf(buffer,"%s/%s",dir,name);
+            sprintf(buffer,"%s%c%s",dir,DIRSEP,xname);
+            //printf("'%s'\n",buffer);
             in = fopen(buffer,"r");
             if (in != NULL) {
                 fclose(in);
                 return buffer;
             }
-            dir = strtok(NULL,PATHSEP);            
-        }    
-    }  
+            dir = strtok(NULL,PATHSEP);
+        }
+    }
     return NULL;
 }
 
@@ -96,9 +112,9 @@ static int pmain(lua_State *L)
  int argc=lua_tointeger(L,1);
  char** argv=lua_touserdata(L,2);
  int i;
- const char *name = full_path(argv[0]);
+ const char *name = search_path(argv[0]);
  if (name==NULL) fatal("srlua","cannot locate this executable");
-    
+
  lua_gc(L,LUA_GCSTOP,0);
  luaL_openlibs(L);
  lua_gc(L,LUA_GCRESTART,0);
