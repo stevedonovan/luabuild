@@ -1,3 +1,4 @@
+#!/bin/bash
 LUA="lua"
 CC="gcc"
 
@@ -45,7 +46,7 @@ else # have to bootstrap!
              "Darwin" ) PLAT=macosx;;
              *            ) PLAT=posix;;
         esac
-        pushd lua-5.2.0
+        pushd lua-5.2.1
         if ! make $PLAT
         then
             echo "bootstrap build borked"
@@ -53,18 +54,16 @@ else # have to bootstrap!
         fi
         rm lua.o loadlib.o
         popd
-       
+        , setpath
     fi
 fi
 
 # now let Lake do the hard part ...
-env $LUA lake $CC
-env $LUA lake install.lua
+if env $LUA lake $CC
+then
+    env $LUA lake install.lua
+fi
 
- export PATH="$(pwd)/bin:$PATH"
  
- # and run the standard tests
- env $LUA lake -f test.lake
-
 
 
