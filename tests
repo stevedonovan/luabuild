@@ -1,3 +1,15 @@
 #!/bin/bash
 . setpath
- lake -f test.lake
+
+# see if we can build luaish properly!
+pushd luaish
+soar52 -o luaish lua.lua -lconfig -lluaish.lua < t.lua
+srlua -o ../bin/luaish luaish
+popd
+if ! luaish < luaish/t.lua
+then
+    echo "luaish test borked"
+    exit
+fi
+
+lake -f test.lake
