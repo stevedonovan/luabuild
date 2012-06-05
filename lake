@@ -2700,7 +2700,6 @@ local function _program(ptype,name,deps,lang)
         --- the rest of the array will be considered as dependencies.
         name = args.name or args[1]
         deps = args.deps or tail(args)
-        if deps and #deps == 0 then deps = nil end
         args.debug = args.debug or DEBUG
         --- if the name contains wildcards, then we make up a new unique target
         --- that depends on all the files. So for instance 'c.program '*' will compile
