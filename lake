@@ -373,14 +373,15 @@ if found_threads then
     local spawn, wait
     if winapi then
         local comspec = os.getenv('COMSPEC')..' /c '
-        
+
         function spawn(cmd)
             return winapi.spawn_process(comspec..cmd)
         end
-        
+
         function wait(ps)
-            local idx,err winapi.wait_for_processes(ps,false)
+            local idx,err = winapi.wait_for_processes(ps,false)
             if err then return nil, err end
+            local p = processes[idx]
             return idx,p:get_exit_code(),err
         end
     else
@@ -395,7 +396,7 @@ if found_threads then
                 return cpid
             end
         end
-        
+
         function wait(ps)
             local pid,status,code = posix.wait(-1)
             if not pid then return nil,nil,code end
@@ -417,7 +418,7 @@ if found_threads then
             p:close()
         end
         os.remove(item.tmp)
-        
+
         table.remove(processes,idx)
         table.remove(outputs,idx)
     end
