@@ -4,7 +4,7 @@ COMMON = COMMON..' '..choose(WINDOWS,'wsocket','usocket')
 SCORE=COMMON..' luasocket inet tcp udp except select'
 
 luabuild.lua('ftp.lua http.lua smtp.lua tp.lua url.lua','socket')
-luabuild.lua('socket.lua mime.lua ltn12.lua')
+luabuild.lua('socket.lua ltn12.lua')
 luabuild.test 'test-driver.lua'
 
 defines='LUASOCKET_DEBUG'
