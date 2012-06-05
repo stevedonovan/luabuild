@@ -387,8 +387,10 @@ if found_threads then
         function spawn(cmd)
             local cpid = posix.fork()
             if cpid == 0 then
-                local ok, code = utils.execute(cmd)
-                os.exit(code)
+                if posix.exec('/bin/sh','-c',cmd) == -1 then
+                    local msg,code = posix.errno()
+                    os.exit(code)
+                end
             else
                 return cpid
             end
@@ -441,7 +443,7 @@ if found_threads then
             end
             if #processes < n_threads then
                 local tmpfile = file.temp()
-                print('launching',t.target,#processes)
+                --print('launching',t.target,#processes)
                 local p,r = spawn(cmd..' > '..tmpfile..' 2>&1')
                 append(outputs,{read=r,callback=callback,tmp=tmpfile})
                 append(processes,p)
