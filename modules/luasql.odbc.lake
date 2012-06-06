@@ -1,0 +1,17 @@
+local defines
+if not WINDOWS then
+    if not find.include_path 'sql.h' then
+        quit("luasql-odbc: cannot find sql.h; need to install unixodbc-dev")
+    end
+    defines = 'UNIXODBC'
+    -- otherwise, if using Informix,
+    -- defines = 'INFORMIX'
+end
+
+return c.library{LIBDIR..'luasql/odbc',
+	src='luasql ls_odbc',
+	llua = 'luasql.odbc',
+	libs ='odbc32',
+    defines = defines,
+    args = ARGS
+}

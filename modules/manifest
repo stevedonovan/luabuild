@@ -12,6 +12,8 @@ linenoise = "lua-linenoise"
 lxp = "luaexpat/src"
 struct = "struct"
 inotify = "linotify"
+M["luasql.odbc"] = "luasql/src"
+
 
 
 
