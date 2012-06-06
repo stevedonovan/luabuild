@@ -1,0 +1,7 @@
+if PLAT ~= 'Linux' then
+    quit ("linotify is only available for Linux")
+end
+
+luabuild.test 'test.lua'
+
+return c.library {LIBDIR..'inotify',src='linotify',args = ARGS}
