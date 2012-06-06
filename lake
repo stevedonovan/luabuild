@@ -2219,7 +2219,7 @@ function lake.set_flags(parms)
           -- the output by returning some modified string.
           if action == 'start' then
             target,rule = line[1],line[3]
-            file_pat = '.-%'..rule.in_ext..'$'
+            file_pat = '^[^:]-%'..rule.in_ext..'$'
             dfile = nil
           elseif action == 'end' then
             write_deps()
