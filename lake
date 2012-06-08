@@ -82,14 +82,14 @@ if WINDOWS then
 end
 
 function file.copy(src,dest)
-    local inf,err = io.open(src,'r')
+    local inf,err = io.open(src,'rb')
     if err then return nil,err end
     local dir = path.splitpath(dest)
     if dir ~= '' and not path.isdir(dir) then
         local ok, e = path.mkdir(dir)
         if not ok then return nil,e end
     end
-    local outf,err = io.open(dest,'w')
+    local outf,err = io.open(dest,'wb')
     if err then inf:close(); return nil,err end
     outf:write(inf:read('*a'))
     outf:close()
@@ -1782,7 +1782,7 @@ local function process_args()
     end
     lake.set_flags()
     -- if we are called as a program, not as a library, then invoke the specified lakefile
-    if arg[0] == 'lake' or arg[0]:find '[/\\]lake$' or arg[0]:find '[/\\]lake.exe' then
+    if arg[0] == 'lake' or arg[0]:find '[/\\]lake$' or arg[0]:find '[/\\]lake%.lua$' or arg[0]:find '[/\\]lake%.exe' then
         if use_lakefile then
             local orig_lakefile = lakefile
             lakefile = exists(lakefile or 'lakefile')
