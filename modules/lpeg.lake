@@ -1,4 +1,4 @@
 luabuild.lua 're'
 luabuild.test 'test.lua'
 
-return c.library{LIBDIR..'lpeg',src='lpeg',args=ARGS}
+return luabuild.library{'lpeg',src='lpeg'}

@@ -8,10 +8,9 @@ if not WINDOWS then
     -- defines = 'INFORMIX'
 end
 
-return c.library{LIBDIR..'luasql/odbc',
+return luabuild.library{'luasql/odbc',
 	src='luasql ls_odbc',
 	llua = 'luasql.odbc',
 	libs ='odbc32',
     defines = defines,
-    args = ARGS
 }

@@ -12,6 +12,4 @@ if not luabuild.config.no_lua51_compat then
     defines = defines..' LUA_COMPAT_ALL'
 end
 
-return c.library {LIBDIR..'socket/core',src=SCORE,needs='sockets',defines=defines,
-    args = ARGS
-}
+return luabuild.library {'socket/core',src=SCORE,needs='sockets',defines=defines}

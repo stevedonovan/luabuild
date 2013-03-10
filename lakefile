@@ -335,6 +335,28 @@ function luabuild.test (file)
     tests:write(current_module,'\t',file,'\t',tname,'\t',deps,'\n')
 end
 
+function luabuild.library (spec)
+    local lang = spec.lang or 'c'
+    spec.lang = nil
+    spec[1] = LIBDIR..spec[1]
+    spec.args = ARGS
+    return _G[lang].library(spec)
+end
+
+function luabuild.write_config_header(file,cfg)
+    if not file:match '[/\\]' then
+        file = SRC..'/'..file
+    end
+    if not path.exists(file) then
+        local f = io.open(file,'w')
+        for flag, value in pairs(cfg) do
+            if value then
+                f:write('#define ',flag,' ',type(value)=='string' and '"'..value..'"' or '1','\n')
+            end
+        end
+        f:close()
+    end
+end
 
 -- build the executables and shared libraries
 

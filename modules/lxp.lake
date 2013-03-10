@@ -5,4 +5,4 @@ end
 luabuild.lua('lxp/lom.lua','lxp')
 luabuild.test 'test-driver.lua'
 
-return c.library{LIBDIR..'lxp',src='lxplib',args=ARGS,libs='expat'}
+return luabuild.library{'lxp',src='lxplib',libs='expat'}

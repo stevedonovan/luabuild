@@ -11,6 +11,4 @@ end
 
 luabuild.lua 'curses'
 
-return c.library {LIBDIR..'curses_c', src='lcurses', libs = libs, defines = defs,
-    args = ARGS
-}
+return luabuild.library {'curses_c', src='lcurses', libs = libs, defines = defs}

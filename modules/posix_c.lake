@@ -13,19 +13,9 @@ end
 cfg.HAVE_SYS_STATVS_H = find.include_path 'sys/statvfs.h' ~= nil
 cfg.HAVE_STATVS = cfg.HAVE_SYS_STATVS_H ~= nil
 
-if not path.exists(SRC..'/config.h') then
-    local f = io.open(SRC..'/config.h','w')
-    for flag, value in pairs(cfg) do
-        if value then
-            f:write('#define ',flag,' ',type(value)=='string' and '"'..value..'"' or '1','\n')
-        end
-    end
-    f:close()
-end
+luabuild.write_config_header('config.h',cfg)
 
 luabuild.lua 'posix'
 luabuild.test 'tests-posix.lua'
 
-return c.library {LIBDIR..'posix_c',src='lposix',libs = libs,
-    args = ARGS,incdir={LUADIR,SRC}
-}
+return luabuild.library {'posix_c',src='lposix',libs = libs,incdir={LUADIR,SRC}}
