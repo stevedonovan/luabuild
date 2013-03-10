@@ -176,6 +176,7 @@ static int push_column(lua_State *L, int coltypes, const SQLHSTMT hstmt,
         SQLUSMALLINT i) {
     const char *tname;
     char type;
+    SQLLEN got;
     /* get column type from types table */
 	lua_rawgeti (L, LUA_REGISTRYINDEX, coltypes);
 	lua_rawgeti (L, -1, i);	/* typename of the column */
@@ -190,7 +191,6 @@ static int push_column(lua_State *L, int coltypes, const SQLHSTMT hstmt,
         /* nUmber */
         case 'u': {
 			double num;
-			SQLINTEGER got;
 			SQLRETURN rc = SQLGetData(hstmt, i, SQL_C_DOUBLE, &num, 0, &got);
 			if (error(rc))
 				return fail(L, hSTMT, hstmt);
@@ -203,7 +203,6 @@ static int push_column(lua_State *L, int coltypes, const SQLHSTMT hstmt,
                   /* bOol */
         case 'o': {
 			char b;
-			SQLINTEGER got;
 			SQLRETURN rc = SQLGetData(hstmt, i, SQL_C_BIT, &b, 0, &got);
 			if (error(rc))
 				return fail(L, hSTMT, hstmt);
@@ -218,7 +217,6 @@ static int push_column(lua_State *L, int coltypes, const SQLHSTMT hstmt,
         /* bInary */
         case 'i': {
 			SQLSMALLINT stype = (type == 't') ? SQL_C_CHAR : SQL_C_BINARY;
-			SQLINTEGER got;
 			char *buffer;
 			luaL_Buffer b;
 			SQLRETURN rc;
@@ -490,7 +488,7 @@ static int conn_execute (lua_State *L) {
 		return create_cursor (L, 1, conn, hstmt, numcols);
 	else {
 		/* if action has no results (e.g., UPDATE) */
-		SQLINTEGER numrows;
+		SQLLEN numrows;
 		ret = SQLRowCount(hstmt, &numrows);
 		if (error(ret)) {
 			ret = fail(L, hSTMT, hstmt);
