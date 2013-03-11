@@ -2,6 +2,4 @@
 
 luabuild.lua('mime')
 
-return c.library {LIBDIR..'mime/core',src='mime',
-    args = ARGS
-}
+return luabuild.library {'mime/core',src='mime'}

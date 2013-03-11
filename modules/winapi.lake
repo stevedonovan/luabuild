@@ -1,7 +1,6 @@
 if not WINDOWS then quit("sorry, wrong operating system!") end
 
-return c.library{LIBDIR..'winapi',src='winapi wutils',
+return luabuild.library{'winapi',src='winapi wutils',
 	defines='PSAPI_VERSION=1',
-	libs = 'kernel32 user32 psapi advapi32 shell32 Mpr',
-    args = ARGS
+	libs = 'kernel32 user32 psapi advapi32 shell32 Mpr'
 }

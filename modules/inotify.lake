@@ -4,4 +4,4 @@ end
 
 luabuild.test 'test.lua'
 
-return c.library {LIBDIR..'inotify',src='linotify',args = ARGS}
+return luabuild.library {'inotify',src='linotify'}

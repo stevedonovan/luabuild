@@ -1,8 +1,7 @@
 -- in this case, we'll assume that the Lua core has always been statically linked
 -- against linenoise
 
-return c.library{LIBDIR..'linenoise',
+return luabuild.library{'linenoise',
     src='linenoise',
-    incdir = {LUADIR,PWD..'linenoise'},
-    args=ARGS
+    incdir = {LUADIR,PWD..'linenoise'}
 }

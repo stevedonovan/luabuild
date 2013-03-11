@@ -5,5 +5,5 @@ end
 
 luabuild.test 'test.lua'
 
-return c99.library{LIBDIR..'complex',src='lcomplex',args=ARGS}
+return luabuild.library{'complex',lang='c99',src='lcomplex'}
 
