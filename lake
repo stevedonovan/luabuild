@@ -165,8 +165,9 @@ function file.temp ()
     return res
 end
 
-function file.temp_copy (s)
+function file.temp_copy (s,ext)
     local res = file.temp()
+    if ext then res = res .. ext end
     local ok,err = file.write(res,s)
     if not ok then return nil,err end
     return res
@@ -379,7 +380,7 @@ local lua52 = rawget(_G,'setfenv') == nil
 
 function utils.execute (cmd,quiet)
     if quiet then
-        local null = " 2>&1 >"..choose(WINDOWS,'NUL','/dev/null')
+        local null = " > "..choose(WINDOWS,'NUL','/dev/null').." 2>&1"
         cmd = cmd .. null
     end
     local res1,res2,res2 = os.execute(cmd)
