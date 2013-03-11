@@ -1,0 +1,3 @@
+luabuild.test 'test.lua'
+
+return luabuild.library{'bc',src='lbc number',incdir = '.'}
