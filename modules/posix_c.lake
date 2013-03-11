@@ -1,4 +1,3 @@
-local SRC = 'modules/luaposix'
 local libs
 local cfg = {HAVE_CRYPT=true, HAVE_CRYPT_H=true, VERSION = "5.1.20"}
 if PLAT~='Darwin' then
@@ -18,4 +17,4 @@ luabuild.write_config_header('config.h',cfg)
 luabuild.lua 'posix'
 luabuild.test 'tests-posix.lua'
 
-return luabuild.library {'posix_c',src='lposix',libs = libs,incdir={LUADIR,SRC}}
+return luabuild.library {'posix_c',src='lposix',libs=libs,incdir='.'}

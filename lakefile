@@ -39,7 +39,13 @@ local function remove_targets(r)
     end
 end
 
-local function split (str) return str and utils.split_list(str) or {} end
+local function split (str)
+    if str then
+        return utils.split_list(str)
+    else
+        return {}
+    end
+end
 
 local function global_name (s) return s:match '^[%u_]+$'  ~= nil end
 
@@ -132,6 +138,7 @@ if next(globs) then lake.set_flags(globs) end
 
 -- what modules must we include or exclude?
 local mods = split(config.include)
+--for k,v in pairs(mods) do print('['..k..']','['..v..']') end
 local ex = split(config.exclude)
 
 for mod in list(mods) do
@@ -337,6 +344,17 @@ end
 
 function luabuild.library (spec)
     local lang = spec.lang or 'c'
+    if spec.incdir then -- ensure we can find Lua headers as well
+        local incdir = spec.incdir
+        incdir = type(incdir)=='table' and incdir or split(incdir)
+        for i,dir in ipairs(incdir) do
+            if dir == '.' then
+                incdir[i] = path.abs(ARGS.base)
+            end
+        end
+        table.insert(incdir,1,LUADIR)
+        spec.incdir = incdir
+    end
     spec.lang = nil
     spec[1] = LIBDIR..spec[1]
     spec.args = ARGS

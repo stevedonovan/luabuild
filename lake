@@ -697,6 +697,7 @@ local function hide_spaces(q) return q:gsub(' ',marker) end
 
 function utils.split_list(s)
     s = s:gsub('^%s+',''):gsub('%s+$','') -- trim the string
+    -- on Windows spaces are escaped with quotes
     s = s:gsub('"[^"]+"',hide_spaces)
     local i1 = 1
     local ls = {}
@@ -704,8 +705,10 @@ function utils.split_list(s)
         item = item:gsub('\\ ',' ')
         append(ls,item)
     end
+    -- In Unix spaces are escaped with \
+    local pat = choose(WINDOWS,'.','[^\\]')..'[%s,]+'
     while true do
-        local i2,i3 = s:find('[^\\][%s,]+',i1)
+        local i2,i3 = s:find(pat,i1)
         if not i2 then
             append_item(s:sub(i1))
             break
@@ -1676,6 +1679,8 @@ function expand_dependencies(t)
             if target then
                 deps[i] = target.target
             elseif not exists(name) then
+                dump(t,'target')
+                dump(t.deps,'deps')
                 quit("cannot find dependency '%s'",name)
             end
         end
@@ -1951,7 +1956,6 @@ local function process_args()
     end
     lake.set_flags()
     -- if we are called as a program, not as a library, then invoke the specified lakefile
-    print ('do we run as program',arg[0])
     if arg[0] == 'lake' or arg[0]:find '[/\\]lake$' or arg[0]:find '[/\\]lake%.lua$' or arg[0]:find '[/\\]f?lake%.exe$' then
         if use_lakefile then
             local orig_lakefile = lakefile
@@ -2028,11 +2032,11 @@ function go()
         quit('no targets defined')
     end
 
-    start_timer 'expand_dependencies'
+    --start_timer 'expand_dependencies'
     for tt in list_(all_targets_list) do
         expand_dependencies(tt)
     end
-    end_timer()
+    --end_timer()
 
     ALL_TARGETS = all_targets()
     if verbose then dump(ALL_TARGETS,'targets') end
@@ -2075,7 +2079,7 @@ function go()
         end)
         targets[index_list(targets,'clean')] = t
     end
-    start_timer 'check'
+    start_timer 'build'
     for t in list_(targets) do
         t.time = filetime(t.target)
         check(t.time,t)
