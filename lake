@@ -63,13 +63,14 @@ WINDOWS = DIRSEP == '\\'
 -- search for '--end_of_libs' to skip to the Meat of the Matter!
 
 function warning(reason,...)
+    reason = reason or '?'
     local str = reason:format(...)
     io.stderr:write('lake: ',str,'\n')
 end
 
 function quit(reason,...)
     warning(reason,...)
-    finalize()
+    finalize(reason and reason:format(...))
     os.exit(1)
 end
 
@@ -1792,17 +1793,19 @@ end
 local dir_stack = {}
 local push,pop = table.insert,table.remove
 
-function change_dir (path)
+function change_dir (path,quiet)
     if not path then return end
+    local msg
     if path == '!' or path == '<' then
         lfs.chdir(pop(dir_stack))
-        log('restoring directory')
+        msg = 'restoring directory'
     else
         push(dir_stack,lfs.currentdir())
         local res,err = lfs.chdir(path)
         if not res then quit(err) end
-        log('changing directory',path)
+        msg = 'changing directory'
     end
+    if not quiet then log(msg,path) end
     update_pwd()
 end
 
@@ -1991,7 +1994,13 @@ local function process_args()
     end
 end
 
-function finalize()
+local hooks = {}
+
+function lake.on_exit (hook)
+    append(hooks,hook)
+end
+
+function finalize(reason)
     if specfile then pcall(specfile.close,specfile) end
     if outspec then
         local stat,err = pcall(outspec.close,outspec)
@@ -2000,6 +2009,9 @@ function finalize()
         else
             log('unable to recreate spec file: ',err)
         end
+    end
+    for _,h in ipairs(hooks) do
+        pcall(h,reason)
     end
 end
 
