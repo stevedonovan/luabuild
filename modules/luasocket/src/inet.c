@@ -203,7 +203,7 @@ static int inet_global_getaddrinfo(lua_State *L)
     lua_newtable(L);
     for (iterator = resolved; iterator; iterator = iterator->ai_next) {
         char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-        getnameinfo(iterator->ai_addr, (socklen_t) iterator->ai_addrlen, hbuf, 
+        getnameinfo(iterator->ai_addr, (socklen_t) iterator->ai_addrlen, hbuf,
             (socklen_t) sizeof(hbuf), sbuf, 0, NI_NUMERICHOST);
         lua_pushnumber(L, i);
         lua_newtable(L);
@@ -317,6 +317,8 @@ int inet_global_local_addresses(lua_State *L)
     freeifaddrs(addr);
 
     return 1;
+#else
+    return 0;
 #endif
 }
 
@@ -341,7 +343,7 @@ int inet_meth_getpeername(lua_State *L, p_socket ps, int family)
                 return 2;
             } else {
                 inet_ntop(family, &peer.sin_addr, name, sizeof(name));
-                lua_pushstring(L, name); 
+                lua_pushstring(L, name);
                 lua_pushnumber(L, ntohs(peer.sin_port));
                 lua_pushliteral(L, "inet");
                 return 3;
@@ -357,7 +359,7 @@ int inet_meth_getpeername(lua_State *L, p_socket ps, int family)
                 return 2;
             } else {
                 inet_ntop(family, &peer.sin6_addr, name, sizeof(name));
-                lua_pushstring(L, name); 
+                lua_pushstring(L, name);
                 lua_pushnumber(L, ntohs(peer.sin6_port));
                 lua_pushliteral(L, "inet6");
                 return 3;
@@ -386,7 +388,7 @@ int inet_meth_getsockname(lua_State *L, p_socket ps, int family)
                 return 2;
             } else {
                 inet_ntop(family, &local.sin_addr, name, sizeof(name));
-                lua_pushstring(L, name); 
+                lua_pushstring(L, name);
                 lua_pushnumber(L, ntohs(local.sin_port));
                 lua_pushliteral(L, "inet");
                 return 3;
@@ -402,7 +404,7 @@ int inet_meth_getsockname(lua_State *L, p_socket ps, int family)
                 return 2;
             } else {
                 inet_ntop(family, &local.sin6_addr, name, sizeof(name));
-                lua_pushstring(L, name); 
+                lua_pushstring(L, name);
                 lua_pushnumber(L, ntohs(local.sin6_port));
                 lua_pushliteral(L, "inet6");
                 return 3;
@@ -476,17 +478,17 @@ const char *inet_trydisconnect(p_socket ps, int family, p_timeout tm)
             memset((char *) &sin, 0, sizeof(sin));
             sin.sin_family = AF_UNSPEC;
             sin.sin_addr.s_addr = INADDR_ANY;
-            return socket_strerror(socket_connect(ps, (SA *) &sin, 
+            return socket_strerror(socket_connect(ps, (SA *) &sin,
                 sizeof(sin), tm));
         }
         case PF_INET6: {
             struct sockaddr_in6 sin6;
-            struct in6_addr addrany = IN6ADDR_ANY_INIT; 
+            struct in6_addr addrany = IN6ADDR_ANY_INIT;
             memset((char *) &sin6, 0, sizeof(sin6));
             sin6.sin6_family = AF_UNSPEC;
 fprintf(stderr, "disconnecting\n");
             sin6.sin6_addr = addrany;
-            return socket_strerror(socket_connect(ps, (SA *) &sin6, 
+            return socket_strerror(socket_connect(ps, (SA *) &sin6,
                 sizeof(sin6), tm));
         }
     }
@@ -511,7 +513,7 @@ const char *inet_tryconnect(p_socket ps, const char *address,
     for (iterator = resolved; iterator; iterator = iterator->ai_next) {
         timeout_markstart(tm);
         /* try connecting to remote address */
-        err = socket_strerror(socket_connect(ps, (SA *) iterator->ai_addr, 
+        err = socket_strerror(socket_connect(ps, (SA *) iterator->ai_addr,
             (socklen_t) iterator->ai_addrlen, tm));
         /* if success, break out of loop */
         if (err == NULL) break;

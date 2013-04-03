@@ -11,5 +11,9 @@ defines='LUASOCKET_DEBUG'
 if not luabuild.config.no_lua51_compat then
     defines = defines..' LUA_COMPAT_ALL'
 end
+if WINDOWS then
+    libs = 'ws2_32'
+end
 
-return luabuild.library {'socket/core',src=SCORE,needs='sockets',defines=defines}
+-- needs='sockets',
+return luabuild.library {'socket/core',src=SCORE,defines=defines,libs=libs}
