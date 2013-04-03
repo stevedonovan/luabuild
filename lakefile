@@ -77,7 +77,7 @@ local function write_config_file (name,tbl)
 end
 
 VERSION = "5.2"
-SRC = 'lua-5.2.1'..DIRSEP
+SRC = 'lua-5.2.2'..DIRSEP
 PWD = lfs.currentdir()..DIRSEP
 LIBDIR = PWD..'lib'..DIRSEP
 BINDIR = PWD..'bin'..DIRSEP

@@ -8,8 +8,6 @@
 * differences. Also, not all *nix platforms behave the same. This module
 * (and the associated usocket.h and wsocket.h) factor these differences and
 * creates a interface compatible with the io.h module.
-*
-* RCS ID: $Id: socket.h,v 1.20 2005/11/20 07:20:23 diego Exp $
 \*=========================================================================*/
 #include "io.h"
 
@@ -61,6 +59,7 @@ int socket_accept(p_socket ps, p_socket pa, SA *addr,
         socklen_t *addr_len, p_timeout tm);
 
 const char *socket_hoststrerror(int err);
+const char *socket_gaistrerror(int err);
 const char *socket_strerror(int err);
 
 /* these are perfect to use with the io abstraction module 

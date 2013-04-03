@@ -2,7 +2,6 @@
 -- LTN12 - Filters, sources, sinks and pumps.
 -- LuaSocket toolkit.
 -- Author: Diego Nehab
--- RCS ID: $Id: ltn12.lua,v 1.31 2006/04/03 04:45:42 diego Exp $
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
@@ -11,21 +10,16 @@
 local string = require("string")
 local table = require("table")
 local base = _G
---module("ltn12")
-ltn12 = {}
-local _M = ltn12
+module("ltn12")
 
-local filter,source,sink,pump = {},{},{},{}
-
-_M.filter = filter
-_M.source = source
-_M.sink = sink
-_M.pump = pump
+filter = {}
+source = {}
+sink = {}
+pump = {}
 
 -- 2048 seems to be better in windows...
-local BLOCKSIZE = 2048
-_M.BLOCKSIZE = BLOCKSIZE
-_M._VERSION = "LTN12 1.0.1"
+BLOCKSIZE = 2048
+_VERSION = "LTN12 1.0.2"
 
 -----------------------------------------------------------------------------
 -- Filter stuff
@@ -43,7 +37,8 @@ end
 -- chains a bunch of filters together
 -- (thanks to Wim Couwenberg)
 function filter.chain(...)
-    local n, arg = base.select('#',...), {...}
+    local arg = {...}
+    local n = #arg
     local top, index = 1, 1
     local retry = ""
     return function(chunk)
@@ -191,6 +186,7 @@ end
 -- other, as if they were concatenated
 -- (thanks to Wim Couwenberg)
 function source.cat(...)
+    local arg = {...}
     local src = table.remove(arg, 1)
     return function()
         while src do
@@ -295,4 +291,3 @@ function pump.all(src, snk, step)
     end
 end
 
-return _M

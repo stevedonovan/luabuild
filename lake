@@ -237,7 +237,7 @@ function path.exists(path,fname)
         return fname
     end
 end
-local exists = path.exists
+exists = path.exists
 file.exists = exists
 
 function path.isdir(path)
@@ -2172,7 +2172,9 @@ function lake.set_flags(parms)
         -- @doc if PREFIX is set, then we use PREFIX-gcc etc. For example,
         -- if PREFIX='arm-linux' then CC becomes 'arm-linux-gcc'
         if PREFIX and #PREFIX > 0 then
-            PREFIX = PREFIX..'-'
+            if not PREFIX:match '%-$' then
+                PREFIX = PREFIX..'-'
+            end
             CC = PREFIX..'gcc'
             CXX = PREFIX..'g++'
             FC = PREFIX..'gfortran'

@@ -5,6 +5,9 @@ local f,err = io.open(testfile)
 if not f then quit(err) end
 
 local EXE = path.abs(path.join('bin',name))
+if WINDOWS then
+    EXE = EXE .. '.exe'
+end
 
 local tests = {}
 

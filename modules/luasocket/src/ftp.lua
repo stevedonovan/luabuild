@@ -2,7 +2,6 @@
 -- FTP support for the Lua language
 -- LuaSocket toolkit.
 -- Author: Diego Nehab
--- RCS ID: $Id: ftp.lua,v 1.45 2007/07/11 19:25:47 diego Exp $
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
@@ -16,30 +15,27 @@ local socket = require("socket")
 local url = require("socket.url")
 local tp = require("socket.tp")
 local ltn12 = require("ltn12")
---module("socket.ftp")
-socket.ftp = {}
-local _M = socket.ftp
+module("socket.ftp")
 
 -----------------------------------------------------------------------------
 -- Program constants
 -----------------------------------------------------------------------------
 -- timeout in seconds before the program gives up on a connection
-_M.TIMEOUT = 60
+TIMEOUT = 60
 -- default port for ftp service
-_M.PORT = 21
+PORT = 21
 -- this is the default anonymous password. used when no password is
 -- provided in url. should be changed to your e-mail.
-_M.USER = "ftp"
-_M.PASSWORD = "anonymous@anonymous.org"
-
+USER = "ftp"
+PASSWORD = "anonymous@anonymous.org"
 
 -----------------------------------------------------------------------------
 -- Low level FTP API
 -----------------------------------------------------------------------------
 local metat = { __index = {} }
 
-function _M.open(server, port, create)
-    local tp = socket.try(tp.connect(server, port or _M.PORT, _M.TIMEOUT, create))
+function open(server, port, create)
+    local tp = socket.try(tp.connect(server, port or PORT, TIMEOUT, create))
     local f = base.setmetatable({ tp = tp }, metat)
     -- make sure everything gets closed in an exception
     f.try = socket.newtry(function() f:close() end)
@@ -47,22 +43,22 @@ function _M.open(server, port, create)
 end
 
 function metat.__index:portconnect()
-    self.try(self.server:settimeout(_M.TIMEOUT))
+    self.try(self.server:settimeout(TIMEOUT))
     self.data = self.try(self.server:accept())
-    self.try(self.data:settimeout(_M.TIMEOUT))
+    self.try(self.data:settimeout(TIMEOUT))
 end
 
 function metat.__index:pasvconnect()
     self.data = self.try(socket.tcp())
-    self.try(self.data:settimeout(_M.TIMEOUT))
+    self.try(self.data:settimeout(TIMEOUT))
     self.try(self.data:connect(self.pasvt.ip, self.pasvt.port))
 end
 
 function metat.__index:login(user, password)
-    self.try(self.tp:command("user", user or _M.USER))
+    self.try(self.tp:command("user", user or USER))
     local code, reply = self.try(self.tp:check{"2..", 331})
     if code == 331 then
-        self.try(self.tp:command("pass", password or _M.PASSWORD))
+        self.try(self.tp:command("pass", password or PASSWORD))
         self.try(self.tp:check("2.."))
     end
     return 1
@@ -91,7 +87,7 @@ function metat.__index:port(ip, port)
         ip, port = self.try(self.tp:getcontrol():getsockname())
         self.server = self.try(socket.bind(ip, 0))
         ip, port = self.try(self.server:getsockname())
-        self.try(self.server:settimeout(_M.TIMEOUT))
+        self.try(self.server:settimeout(TIMEOUT))
     end
     local pl = math.mod(port, 256)
     local ph = (port - pl)/256
@@ -203,7 +199,7 @@ end
 local function tput(putt)
     putt = override(putt)
     socket.try(putt.host, "missing hostname")
-    local f = _M.open(putt.host, putt.port, putt.create)
+    local f = open(putt.host, putt.port, putt.create)
     f:greet()
     f:login(putt.user, putt.password)
     if putt.type then f:type(putt.type) end
@@ -215,8 +211,8 @@ local function tput(putt)
 end
 
 local default = {
-	path = "/",
-	scheme = "ftp"
+    path = "/",
+    scheme = "ftp"
 }
 
 local function parse(u)
@@ -238,7 +234,7 @@ local function sput(u, body)
     return tput(putt)
 end
 
-_M.put = socket.protect(function(putt, body)
+put = socket.protect(function(putt, body)
     if base.type(putt) == "string" then return sput(putt, body)
     else return tput(putt) end
 end)
@@ -246,7 +242,7 @@ end)
 local function tget(gett)
     gett = override(gett)
     socket.try(gett.host, "missing hostname")
-    local f = _M.open(gett.host, gett.port, gett.create)
+    local f = open(gett.host, gett.port, gett.create)
     f:greet()
     f:login(gett.user, gett.password)
     if gett.type then f:type(gett.type) end
@@ -264,11 +260,11 @@ local function sget(u)
     return table.concat(t)
 end
 
-_M.command = socket.protect(function(cmdt)
+command = socket.protect(function(cmdt)
     cmdt = override(cmdt)
     socket.try(cmdt.host, "missing hostname")
     socket.try(cmdt.command, "missing command")
-    local f = _M.open(cmdt.host, cmdt.port, cmdt.create)
+    local f = open(cmdt.host, cmdt.port, cmdt.create)
     f:greet()
     f:login(cmdt.user, cmdt.password)
     f.try(f.tp:command(cmdt.command, cmdt.argument))
@@ -277,9 +273,8 @@ _M.command = socket.protect(function(cmdt)
     return f:close()
 end)
 
-_M.get = socket.protect(function(gett)
+get = socket.protect(function(gett)
     if base.type(gett) == "string" then return sget(gett)
     else return tget(gett) end
 end)
 
-return _M

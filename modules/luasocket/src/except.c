@@ -1,8 +1,6 @@
 /*=========================================================================*\
 * Simple exception support
 * LuaSocket toolkit
-*
-* RCS ID: $Id: except.c,v 1.8 2005/09/29 06:11:41 diego Exp $
 \*=========================================================================*/
 #include <stdio.h>
 
@@ -19,11 +17,6 @@ static int global_newtry(lua_State *L);
 static int protected_(lua_State *L);
 static int finalize(lua_State *L);
 static int do_nothing(lua_State *L);
-
-#if LUA_VERSION_NUM > 501
-int luaL_typerror (lua_State *L, int narg, const char *tname);
-void luaL_openlib(lua_State *L, const char *name, const luaL_Reg *funcs, int idx);
-#endif
 
 /* except functions */
 static luaL_Reg func[] = {
@@ -55,9 +48,9 @@ static int finalize(lua_State *L) {
     } else return lua_gettop(L);
 }
 
-static int do_nothing(lua_State *L) {
+static int do_nothing(lua_State *L) { 
     (void) L;
-    return 0;
+    return 0; 
 }
 
 static int global_newtry(lua_State *L) {

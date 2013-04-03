@@ -10,8 +10,6 @@
 * involved in setting up both  client and server connections. The provided
 * IO routines, however, follow the Lua  style, being very similar  to the
 * standard Lua read and write functions.
-*
-* RCS ID: $Id: luasocket.c,v 1.53 2005/10/07 04:40:59 diego Exp $
 \*=========================================================================*/
 
 /*=========================================================================*\
@@ -82,31 +80,6 @@ static int global_unload(lua_State *L) {
     socket_close();
     return 0;
 }
-
-#if LUA_VERSION_NUM > 501
-
-int luaL_typerror (lua_State *L, int narg, const char *tname) {
-  const char *msg = lua_pushfstring(L, "%s expected, got %s",
-                                    tname, luaL_typename(L, narg));
-  return luaL_argerror(L, narg, msg);
-}
-
-#if ! defined(LUA_COMPAT_MODULE)
-void luaL_openlib(lua_State *L, const char *name, const luaL_Reg *funcs, int idx) {
-    if (name != NULL) {
-        lua_getglobal(L,name);
-        if (lua_isnil(L,-1)) {
-            lua_newtable(L);
-            lua_setglobal(L,name);
-            lua_getglobal(L,name);
-        }
-    }
-    luaL_setfuncs(L,funcs,0);
-}
-#endif
-
-#endif
-
 
 /*-------------------------------------------------------------------------*\
 * Setup basic stuff.

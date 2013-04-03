@@ -5,8 +5,6 @@
 * The code is now interrupt-safe.
 * The penalty of calling select to avoid busy-wait is only paid when
 * the I/O call fail in the first place. 
-*
-* RCS ID: $Id: usocket.c,v 1.38 2007/10/13 23:55:20 diego Exp $
 \*=========================================================================*/
 #include <string.h> 
 #include <signal.h>
@@ -30,9 +28,9 @@ int socket_waitfd(p_socket ps, int sw, p_timeout tm) {
     pfd.revents = 0;
     if (timeout_iszero(tm)) return IO_TIMEOUT;  /* optimize timeout == 0 case */
     do {
-		int t = (int)(timeout_getretry(tm)*1e3);
-		ret = poll(&pfd, 1, t >= 0? t: -1);
-	} while (ret == -1 && errno == EINTR);
+        int t = (int)(timeout_getretry(tm)*1e3);
+        ret = poll(&pfd, 1, t >= 0? t: -1);
+    } while (ret == -1 && errno == EINTR);
     if (ret == -1) return errno;
     if (ret == 0) return IO_TIMEOUT;
     if (sw == WAITFD_C && (pfd.revents & (POLLIN|POLLERR))) return IO_CLOSED;
@@ -183,11 +181,7 @@ int socket_connect(p_socket ps, SA *addr, socklen_t len, p_timeout tm) {
 * Accept with timeout
 \*-------------------------------------------------------------------------*/
 int socket_accept(p_socket ps, p_socket pa, SA *addr, socklen_t *len, p_timeout tm) {
-    SA daddr;
-    socklen_t dlen = sizeof(daddr);
     if (*ps == SOCKET_INVALID) return IO_CLOSED; 
-    if (!addr) addr = &daddr;
-    if (!len) len = &dlen;
     for ( ;; ) {
         int err;
         if ((*pa = accept(*ps, addr, len)) != SOCKET_INVALID) return IO_DONE;
@@ -428,3 +422,28 @@ const char *socket_ioerror(p_socket ps, int err) {
     (void) ps;
     return socket_strerror(err);
 } 
+
+const char *socket_gaistrerror(int err) {
+    if (err == 0) return NULL; 
+    switch (err) {
+        case EAI_AGAIN: return "temporary failure in name resolution";
+        case EAI_BADFLAGS: return "invalid value for ai_flags";
+#ifdef EAI_BADHINTS
+        case EAI_BADHINTS: return "invalid value for hints";
+#endif
+        case EAI_FAIL: return "non-recoverable failure in name resolution";
+        case EAI_FAMILY: return "ai_family not supported";
+        case EAI_MEMORY: return "memory allocation failure";
+        case EAI_NONAME: 
+            return "host or service not provided, or not known";
+        case EAI_OVERFLOW: return "argument buffer overflow";
+#ifdef EAI_PROTOCOL
+        case EAI_PROTOCOL: return "resolved protocol is unknown";
+#endif
+        case EAI_SERVICE: return "service not supported for socket type";
+        case EAI_SOCKTYPE: return "ai_socktype not supported";
+        case EAI_SYSTEM: return strerror(errno); 
+        default: return gai_strerror(err);
+    }
+}
+
