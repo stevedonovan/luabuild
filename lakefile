@@ -292,7 +292,7 @@ function generate_module_targets(shared)
     end
     for i,mod in ipairs(mods) do
         local moddir, lmod = xmodules[mod]
-        if WINDOWS then
+        if BUILD_PLAT=='Windows' then
             moddir = moddir:gsub('/','\\')
         end
         ARGS.base = join("modules",moddir)

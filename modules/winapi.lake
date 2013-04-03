@@ -1,6 +1,14 @@
 if not WINDOWS then quit("sorry, wrong operating system!") end
 
+local defines = 'PSAPI_VERSION=1'
+local libs = 'kernel32 user32 psapi advapi32 shell32'
+
+if BUILD_PLAT == 'Windows' then
+    libs = libs..' Mpr'
+else
+    defines = defines .. ' NO_WINNET'
+end
+
 return luabuild.library{'winapi',src='winapi wutils',
-	defines='PSAPI_VERSION=1',
-	libs = 'kernel32 user32 psapi advapi32 shell32 Mpr'
+	defines=defines,libs=libs
 }

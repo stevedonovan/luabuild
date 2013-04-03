@@ -19,7 +19,9 @@ A useful set of Windows API functions.
 #ifdef __GNUC__
 #include <winable.h> /* GNU GCC specific */
 #endif
+#ifndef NO_WINNET
 #include "Winnetwk.h"
+#endif
 #include <psapi.h>
 
 
@@ -1705,6 +1707,7 @@ def get_disk_free_space(Str root) {
 // @return UNC name
 // @function get_disk_network_name
 def get_disk_network_name(Str root) {
+#ifndef NO_WINNET
   DWORD size = sizeof(wbuff);
   DWORD res = WNetGetConnectionW(wstring(root),wbuff,&size);
   if (res == NO_ERROR) {
@@ -1712,6 +1715,9 @@ def get_disk_network_name(Str root) {
   } else {
     return push_error(L);
   }
+#else
+  return 0
+#endif
 }
 
 //// start watching a directory.
