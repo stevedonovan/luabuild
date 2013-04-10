@@ -3,7 +3,7 @@ COMMON='timeout buffer auxiliar options io'
 COMMON = COMMON..' '..choose(WINDOWS,'wsocket','usocket')
 SCORE=COMMON..' luasocket inet tcp udp except select'
 
-luabuild.lua('ftp.lua http.lua smtp.lua tp.lua url.lua','socket')
+luabuild.lua('ftp.lua http.lua smtp.lua headers.lua tp.lua url.lua','socket')
 luabuild.lua('socket.lua ltn12.lua')
 luabuild.test 'test-driver.lua'
 
@@ -13,6 +13,7 @@ if not luabuild.config.no_lua51_compat then
 end
 if WINDOWS then
     libs = 'ws2_32'
+    defines = defines..' _WIN32_WINNT=0x0501 IPV6_V6ONLY=27 INET_PTON'
 end
 
 -- needs='sockets',

@@ -1,13 +1,13 @@
-socket = require("socket");
+socket = require("socket")
+host = host or "localhost"
+port = port or "8383"
+server = assert(socket.bind(host, port))
 loadstring = loadstring or load -- Lua 5.2 compat
-host = host or "localhost";
-port = port or "8383";
-server = assert(socket.bind(host, port));
 ack = "\n";
 while 1 do
     print("server: waiting for client connection...");
     control = assert(server:accept());
-    while 1 do 
+    while 1 do
         command, emsg = control:receive();
         if emsg == "closed" then
             control:close()

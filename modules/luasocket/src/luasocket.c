@@ -93,6 +93,11 @@ static int base_open(lua_State *L) {
         lua_pushboolean(L, 1);
         lua_rawset(L, -3);
 #endif
+#ifdef INET_PTON
+        lua_pushstring(L, "_BROKEN_XP");
+        lua_pushboolean(L, 1);
+        lua_rawset(L, -3);
+#endif
         /* make version string available to scripts */
         lua_pushstring(L, "_VERSION");
         lua_pushstring(L, LUASOCKET_VERSION);

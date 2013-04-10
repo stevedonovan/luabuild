@@ -24,6 +24,16 @@ function connect6(address, port, laddress, lport)
 end
 
 function bind(host, port, backlog)
+    if socket._BROKEN_XP and (host == "localhost" or host == "*") then
+        sock, err = socket.tcp()
+        if not sock then return nil, err end
+        sock:setoption("reuseaddr",true)
+        res, err = sock:bind(host,port)
+        if not res then return nil, err end
+        res, err = sock:listen(backlog)
+        if not res then sock:close(); return nil,err end
+        return sock
+    end
     if host == "*" then host = "0.0.0.0" end
     local addrinfo, err = socket.dns.getaddrinfo(host);
     if not addrinfo then return nil, err end
@@ -38,16 +48,16 @@ function bind(host, port, backlog)
         if not sock then return nil, err end
         sock:setoption("reuseaddr", true)
         res, err = sock:bind(alt.addr, port)
-        if not res then 
+        if not res then
             sock:close()
-        else 
+        else
             res, err = sock:listen(backlog)
-            if not res then 
+            if not res then
                 sock:close()
             else
                 return sock
             end
-        end 
+        end
     end
     return nil, err
 end
