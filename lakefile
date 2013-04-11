@@ -242,7 +242,7 @@ if config.custom_lua_path or config.no_dlink then
         path = path:gsub('\\','\\\\')
         xdefs = defs..' '..'LUA_CUSTOM_DIR='..path
     else
-        xdefs = nil
+        xdefs = compat
     end
 else
     xdefs = defs

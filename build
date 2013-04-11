@@ -46,7 +46,7 @@ else # have to bootstrap!
              "Darwin" ) PLAT=macosx;;
              *            ) PLAT=posix;;
         esac
-        pushd lua-5.2.1
+        pushd lua-5.2.2
         if ! make $PLAT
         then
             echo "bootstrap build borked"
@@ -55,6 +55,7 @@ else # have to bootstrap!
         rm lua.o loadlib.o
         popd
         . setpath
+        LUA=lua
     fi
 fi
 
