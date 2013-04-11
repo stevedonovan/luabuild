@@ -55,7 +55,7 @@ else # have to bootstrap!
         rm lua.o loadlib.o
         popd
         . setpath
-        LUA=lua
+        LUA=luaboot
     fi
 fi
 

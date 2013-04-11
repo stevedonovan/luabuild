@@ -18,7 +18,7 @@ for line in f:lines() do
     local tname = args[3]
     local depends = args[4]
     local test = target(tname,{luatest,depends},
-        EXE..' '..luatest..' > $(TARGET)')
+        EXE..' '..luatest..' > $(TARGET) || $(REMOVE) $(TARGET)')
     test.dir = path.splitpath(luatest)
     table.insert(tests,test)
 end

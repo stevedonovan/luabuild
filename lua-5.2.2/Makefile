@@ -42,7 +42,7 @@ lfs.o: ../modules/lfs/lfs.c
     
 BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
 
-LUA_T=	lua
+LUA_T=	luaboot
 LUA_O=	lua.o
 
 LUAC_T=	luac
