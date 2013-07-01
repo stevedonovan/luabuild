@@ -20,7 +20,7 @@ Lua C extensions are usually shipped with makefiles, which are designed to build
  * [lcomplex](http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/#lcomplex) Complex number Support (requires C99)
  * [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg.html)
  * [LuaSocket](http://www.tecgraf.puc-rio.br/luasocket/) Networking
- * [luaposix](https://github.com/rrthomas/luaposix)  POSIX API
+ * [luaposix](https://github.com/luaposix/luaposix)  POSIX API
  * [winapi](https://github.com/stevedonovan/winapi) Minimal Windows API
  * [ltcltk](http://www.tset.de/ltcltk/) Binding to Tcl/Tk
  * [LuaSQLite3](http://lua.sqlite.org/index.cgi/index)
