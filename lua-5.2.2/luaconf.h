@@ -58,7 +58,9 @@
 #define LUA_USE_LONGLONG	/* assume support for long long */
 #endif
 
-
+#if defined(LUA_NO_READLINE)
+#undef LUA_USE_READLINE
+#endif
 
 /*
 @@ LUA_USE_POSIX includes all functionality listed as X/Open System

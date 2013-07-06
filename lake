@@ -85,7 +85,8 @@ function pick(a,b)
 end
 
 file = {ext='*'}
-COPY = choose(Windows,'copy','cp')
+COPY = choose(Windows,'copy' ,'cp ')
+REMOVE = choose(Windows,'ren ','mv ')
 file.compile = '$(COPY) $(DEPENDS) $(TARGET)'
 
 
@@ -651,13 +652,7 @@ function utils.remove(items,single)
 end
 
 function utils.remove_files (mask)
-    local cmd
-    if Windows then
-        cmd = 'del '..mask
-    else
-        cmd = 'rm '..mask
-    end
-    exec(cmd)
+    exec(REMOVE..mask)
 end
 
 function utils.make_callable (obj,fun)
