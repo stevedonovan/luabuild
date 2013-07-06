@@ -2,10 +2,10 @@
 -- Lake - a build framework in Lua
 -- Freely distributable for any purpose, as long as copyright notice is retained. (X11/MIT)
 -- (And remember my dog did not eat your homework)
--- Steve Donovan, 2007-2010
+-- Steve Donovan, 2007-2013
 
 local usage = [[
-Lake version 1.3  A Lua-based Build Engine
+Lake version 1.4  A Lua-based Build Engine
   lake <flags> <assigments> <target(s)>
   * flags:
     -v verbose
@@ -24,6 +24,7 @@ Lake version 1.3  A Lua-based Build Engine
     -w write out unsatisfied needs to lakeconfig.lua
     -lua FILE build a Lua binary extension
     -install FILE install a new need or language
+    -C really clean a directory tree!
 
   * assigmnents: arguments of the form VAR=STRING assign the string
     to the global VAR. The env variable LAKE_PARMS may contain
@@ -39,25 +40,21 @@ Lake version 1.3  A Lua-based Build Engine
 
 local lfs = require 'lfs'
 local append = table.insert
+local env = os.getenv
+local unpack = unpack
+local log = print
+local attributes = lfs.attributes
 local verbose = false
 local specific_targets = {}
 local nbuild = 0
 local all_targets_list = {}
-local attributes = lfs.attributes
-local env = os.getenv
-local unpack = unpack or table.unpack
-local log = print
-
 local TMPSPEC = '_t_.spec'
-local specfile
-local outspec
-local lakefile
-local change_dir,finalize,exists
+local specfile, outspec
+local change_dir,finalize,exists,Windows
 
 TESTING = false
-
 DIRSEP = package.config:sub(1,1)
-local Windows = DIRSEP == '\\'
+Windows = DIRSEP == '\\'
 WINDOWS = Windows -- we'll review this later
 
 ---some useful library functions for manipulating file paths, lists, etc.
@@ -98,12 +95,19 @@ if Windows then
 end
 
 function file.time(fname)
+    if type(fname) ~= 'string' then
+        return fname.time
+    end
     local time,err = attributes(fname,'modification')
     if time then
         return time
     else
         return -1
     end
+end
+
+local function is_object(t)
+    return type(t) == 'table' and #t == 0 and t.time
 end
 
 local filetime = file.time
@@ -120,19 +124,26 @@ function file.generate_target(r,tname,root)
     end
 end
 
-function file.copy(src,dest)
+local function fail (e,verbose)
+    if verbose then quit(e) else return nil,e end
+end
+
+function file.copy(src,dest,v)
     local inf,err = io.open(src,'rb')
     if err then return nil,err end
     local dir = path.splitpath(dest)
     if dir ~= '' and not path.isdir(dir) then
         local ok, e = path.mkdir(dir)
-        if not ok then return nil,e end
+        if not ok then return fail(e,v) end
     end
     local outf,err = io.open(dest,'wb')
-    if err then inf:close(); return nil,err end
+    if err then inf:close(); return fail(err,v) end
     outf:write(inf:read('*a'))
     outf:close()
     inf:close()
+    if v then
+        log ('copying '..src..' to '..dest)
+    end
     return true
 end
 
@@ -153,6 +164,9 @@ function file.read (name)
 end
 
 function file.touch(name)
+    if type(name) ~= 'string' then
+        name.time = utils.clock()
+    end
     if not path.exists(name) then
         return file.write(name,'dummy')
     else
@@ -173,6 +187,20 @@ function file.temp_copy (s,ext)
     if ext then res = res .. ext end
     local ok,err = file.write(res,s)
     if not ok then return nil,err end
+    return res
+end
+
+local canonical_path
+
+function file.copy_tree (src,dest)
+    local res
+    if PLAT=='Windows' then
+        src = canonical_path(src)
+        dest = canonical_path(dest)
+        res = utils.execute('xcopy /S /E /I /Q "'..src..'" "'..dest..'"',true)
+    else
+        res = utils.execute('cp -R '..src..' '..dest,true)
+    end
     return res
 end
 
@@ -224,12 +252,10 @@ function find.include_path(candidates)
     return res
 end
 
-local function at(s,i)
-    return s:sub(i,i)
-end
+local function at(s,i) return s:sub(i,i) end
 
 path = {}
-local join
+local join, update_pwd, splitpath
 
 function path.exists(path,fname)
     if fname then fname = join(path,fname) else fname = path end
@@ -258,8 +284,6 @@ function path.isabs(path)
 end
 local isabs = path.isabs
 
-local update_pwd
-
 function path.abs(...)
     local args = {...}
     if isabs(args[1]) then return args[1] end
@@ -271,11 +295,21 @@ function path.abs(...)
 end
 
 local function quote_if_necessary (file)
-    if file:find '%s' then
-        file = '"'..file..'"'
+    if not file then return '' end
+    if type(file) == 'string' and file:find '%s' then
+        if file:find '\\$' then
+            file = file .. '\\\\'
+        end
+--~         if Windows then
+            file = '"'..file..'"'
+--~         else
+--~             file = file:gsub('([^\\])%s','%1\\ ')
+--~         end
+
     end
     return file
 end
+path.quote = quote_if_necessary
 
 -- this is used for building up strings when the initial value might be nil
 --  s = concat_str(s,"hello")
@@ -312,8 +346,6 @@ function path.get_directories (dir)
     return res
 end
 get_directories = path.get_directories
-
-local splitpath
 
 function path.files_from_mask (mask,recurse)
     local path,pat = splitpath(mask)
@@ -407,7 +439,6 @@ function path.expanduser(path)
 end
 local expanduser = path.expanduser
 
-
 function path.replace_extension (path,ext)
     local p1,p2 = splitext(path)
     return p1..ext
@@ -452,7 +483,8 @@ function path.mkdir (p)
     return _mkdir(p)
 end
 
-local function canonical_path (p)
+function canonical_path (p)
+    if type(p) ~= 'string' then return p end
     if Windows then
         return (p:gsub('/','\\')) --:lower())
     else
@@ -471,13 +503,15 @@ utils = {}
 
 local start_t, msg_t
 
+utils.clock = os.clock
+
 function utils.start_timer (msg)
     msg_t = msg
-    start_t = os.clock()
+    start_t = utils.clock()
 end
 
 function utils.end_timer ()
-    warning("'%s' took %7.2f sec",msg_t,os.clock()-start_t)
+    warning("'%s' took %5.2f sec",msg_t,utils.clock()-start_t)
 end
 
 function utils.split(s,re)
@@ -556,9 +590,10 @@ local marker = string.char(4)
 local function hide_spaces(q) return q:gsub(' ',marker) end
 
 function utils.split_list(s)
+    local n_esc
     s = s:gsub('^%s+',''):gsub('%s+$','') -- trim the string
-    -- on Windows spaces are escaped with quotes
-    s = s:gsub('"[^"]+"',hide_spaces)
+    -- spaces can be escaped with double quotes
+    s, n_esc = s:gsub('"[^"]+"',hide_spaces)
     local i1 = 1
     local ls = {}
     local function append_item (item)
@@ -577,8 +612,14 @@ function utils.split_list(s)
         i1 = i3+1
     end
     for i = 1,#ls do
-        if ls[i]:find(marker) then
-            ls[i] = ls[i]:gsub(marker,' ')
+        local item = ls[i]
+        if item:match(marker) then
+            item = item:gsub(marker,' ')
+            -- unquote fully quoted items
+            if item:match '^"' then
+                item = item:sub(2,-2)
+            end
+            ls[i] = item
         end
     end
     return ls
@@ -594,15 +635,19 @@ function utils.forall(ls,action)
 end
 local forall = utils.forall
 
-function utils.remove(items)
-    if type(items) == 'string' then
-        items = split_list(items)
+function utils.remove(items,single)
+    if  type(items) == 'string' then
+        if single then
+            items = {items}
+        else
+            items = split_list(items)
+        end
     end
-    forall(items,function(f)
+    for _,f in ipairs(items) do
         if os.remove(f) then
             log ('removing',f)
         end
-    end)
+    end
 end
 
 function utils.remove_files (mask)
@@ -722,10 +767,13 @@ function list.erase(l1,l2)
 end
 erase_list = list.erase
 
-function list.concat(pre,ls,sep)
+function list.concat(ls,pre,sep)
     local res = ''
     for i,v in ipairs(ls) do
         if v ~= '' then
+            if v:match '%s' and not v:match '"' then
+                v = quote_if_necessary(v)
+            end
             res = res..pre..v..sep
         end
     end
@@ -791,6 +839,12 @@ if Windows then
     found_threads, winapi = pcall(require, 'winapi')
 else
     found_threads, posix = pcall(require, 'posix')
+	if found_threads and posix.clock_gettime then
+		function utils.clock()
+			local secs,nsec = posix.clock_gettime()
+			return secs + nsec/1e9
+		end
+	end
 end
 
 local function command_line (cmd)
@@ -932,7 +986,7 @@ local function within_msvc_include_path (file)
     if res ~= nil then return res end
     local dir = splitpath(file):lower()
     for d in list_(msvc_includes) do
-        local i1,i2 = dir:find(d)
+        local i1,i2 = dir:find(d,1,true)
         if i1==1 and i2 == #d then
             res = true
             break
@@ -979,43 +1033,45 @@ end
 
 lake = {}
 
+function lake.set_log (f)
+    log = f
+end
+
 local baselang = {}
 baselang.defaults = appender()
 
 function lake.new_lang(bl,t)
     bl = bl or baselang
     t = t or {}
-    return inherits_from(bl)(t)
+    local lang = inherits_from(bl)(t)
+    lang.defaults = appender()
+    return lang
 end
+local new_lang = lake.new_lang
 
-c = lake.new_lang(nil,{ext='.c'})
-local CI = inherits_from(c)
-c.defaults = appender()
+c = new_lang(nil,{ext='.c'})
 
--- these chaps inherit from C lang for many of their fields
-cpp = CI{ext='.cpp'}
-f = CI{ext='.f'}
-c99 = CI{ext='.c'}
-
-cpp.defaults = appender()
-f.defaults = appender()
-c99.defaults = appender()
+-- these chaps inherit from C lang for their default compile behaviour
+cpp = new_lang(c,{ext='.cpp'})
+f = new_lang(c,{ext='.f'})
+c99 = new_lang(c,{ext='.c'})
+s = new_lang(c,{ext='.s'})
 
 -- precompiled C++ headers
-cpp_ch = inherits_from(cpp) { ext = '.h' }
+cpp_ch = new_lang(cpp,{ext='.h'})
 
 -- experimental C++11 support
-cpp11 = inherits_from(cpp) {}
+cpp11 = new_lang(cpp)
 
 wresource = {ext='.rc'}
 
-
 local extensions = {
     ['.c'] = c, ['.cpp'] = cpp, ['.cxx'] = cpp, ['.C'] = cpp,
+    ['.s'] = s,
     ['.f'] = f, ['.for'] = f, ['.f90'] = f,
 }
 
-local deps_arg, isrule, istarget
+local deps_arg, concat_arg, isrule, istarget
 
 function lake.register(lang,extra)
     extensions[lang.ext] = lang
@@ -1112,6 +1168,7 @@ lake.expand_args = expand_args
 utils.foreach = utils.quote(forall)
 
 local tmt,tcnt = {},1
+tmt.__index = tmt
 
 function istarget (t)
     return type(t) == 'table' and getmetatable(t) == tmt
@@ -1131,14 +1188,19 @@ local function remove_quotes (ls)
     return ls
 end
 
-local function new_target(tname,deps,cmd,upfront)
+local function new_target(tname,deps,cmd,upfront,dont_massage_deps)
     local t = setmetatable({},tmt)
     if tname == '*' then
         tname = '*'..tcnt
         tcnt = tcnt + 1
+    elseif not tname then
+        quit("target is nil!")
     end
     t.target = canonical_path(tname)
-    t.deps = remove_quotes(deps_arg(deps))
+    if not dont_massage_deps then
+        deps = remove_quotes(deps_arg(deps))
+    end
+    t.deps = deps
     t.cmd = cmd
     if upfront then
         table.insert(all_targets_list,1,t)
@@ -1203,10 +1265,10 @@ end
 
 -- this is used by the CL output parser: e.g, cl will put out 'hello.c' and this
 -- code will return 'release\hello.d' and '..\hello.c'
-function rt.deps_filename (r,name)
-    local t = find_list(r.targets,'base',splitext(name))
-    return replace_extension(t.target,'.d'), t.input
-end
+--~ function rt.deps_filename (r,name)
+--~     local t = find_list(r.targets,'base',splitext(name))
+--~     return replace_extension(t.target,'.d'), t.input
+--~ end
 
 local deps_from_d_file
 
@@ -1231,7 +1293,7 @@ function rt.add_target(r,tname,deps,root)
     if ext == '' then ext = in_ext end
     local input = tname..ext
 
-    -- usually file.IN goes to file.OUT, but a 'language' can ask
+    -- usually file.IN goes to file.OUT, but a language can ask
     -- for custom behaviour here.
     local new_target_name
     local target_name = tname..out_ext
@@ -1249,8 +1311,17 @@ function rt.add_target(r,tname,deps,root)
         -- this is used by compilers like javac which generate output files
         -- within the same directory as the source files
         target_name = replace_extension(input,r.out_ext)
-    elseif  r.output_dir then
-        target_name = join(r.output_dir,target_name)
+    else
+        if FULL_OUTPUTNAME then
+            local dir = path.dirname(tname)
+            if #dir > 0 then
+                dir = dir:gsub('[/\\]','__'):gsub('%.','_') .. '__'
+            end
+            target_name = dir .. target_name
+        end
+        if r.output_dir then
+            target_name = join(r.output_dir,target_name)
+        end
     end
 
     -- the files which this target is dependent on.
@@ -1274,7 +1345,7 @@ function rt.add_target(r,tname,deps,root)
         append_list_unique(deps,r.global_deps)
     end
 
-    local t = new_target(target_name,deps,r.cmd)
+    local t = new_target(target_name,deps,r.cmd,false,true)
     t.name = tname
     t.input = input
     t.rule = r
@@ -1412,7 +1483,7 @@ local basic_variables = {INPUT=true,TARGET=true,DEPENDS=true,LIBS=true,CFLAGS=tr
 function exec(s,dont_fail,t)
     local cmd = subst(s)
     if basic_print and t then
-        log('built',t.target)
+        log('built '..t.target)
     else
         log(cmd)
     end
@@ -1483,21 +1554,20 @@ local function fire(t)
     --- @doc basic variables available to actions:
     -- they are kept in the basic_variables table above, since then we can use
     -- subst_all_but_basic() to replace every _other_ variable in command strings.
-    INPUT = t.input
-    TARGET = t.target
+    INPUT = quote_if_necessary(t.input)
+    TARGET = quote_if_necessary(t.target)
     if t.cdir then TARGET=relative_to(TARGET,t.cdir) end
     SRC = t.src and table.concat(t.src,' ')
-    if t.deps then
+    if t.deps and not is_object(t.deps[1]) then
         local deps = t.deps
         if t.link_lang and t.link_lang.massage_link then
             deps = t.link_lang.massage_link(t.name,deps,t)
         end
-        if t.cdir then
-            local odeps = deps
-            deps = {}
-            for i = 1,#odeps do
-                deps[i] = relative_to(odeps[i],t.cdir)
-            end
+        local odeps = deps
+        deps = {}
+        for i = 1,#odeps do
+            deps[i] = t.cdir and relative_to(odeps[i],t.cdir) or odeps[i]
+            deps[i] = quote_if_necessary(odeps[i])
         end
         DEPENDS = table.concat(deps,' ')
     end
@@ -1514,9 +1584,9 @@ local function fire(t)
                 local filter = t.rule.filter or nop
                 local outf = t.rule.stdout and io.stdout or io.stderr
                 if basic_print and ok then
-                    log('built',t.target)
+                    log('built '..t.target)
                 end
-                filter({TARGET,INPUT,t.rule},'start')
+                filter({t.target,t.input,t.rule},'start')
                 for line in inf:lines() do
                     line = filter(line)
                     if line then outf:write(line,'\n') end
@@ -1548,7 +1618,7 @@ function check(time,t)
     end
 
     if t.checked then return end
-    if verbose then log('target: '..t.target) end
+    if verbose then log('target: '..tostring(t.target)) end
 
     if t.deps then
         -- the basic out-of-date check compares last-written file times.
@@ -1583,7 +1653,7 @@ local function deps_list (targets)
     deps = {}
     for target in list_(targets) do
         target = get_deps(target)
-        if type(target) == 'string' then
+        if type(target) == 'string' or is_object(target) then
             append(deps,target)
         else
             append_list(deps,target)
@@ -1620,27 +1690,31 @@ local function expand_dependencies(t)
     -- and update the dependency accordingly.
     for i = 1,#deps do
         local name = deps[i]
+        local not_object
         if type(name) ~= 'string' then
             name = get_dependencies(name)
             deps[i] = name
-            if type(name) ~= 'string' then
-                dump(name,'NOT FILE')
-                quit("not a file name")
-            end
+            not_object = not is_object(name)
+--~             if type(name) ~= 'string' then
+--~                 dump(name,'NOT FILE')
+--~                 quit("not a file name")
+--~             end
         end
-        local target = target_from_file(name)
-        if not target then
-            target = target_from_file(name,'name')
-            if target then
-                deps[i] = target.target
-            elseif not exists(name) then
-                dump(t,'target')
-                dump(t.deps,'deps')
-                quit("cannot find dependency '%s'",name)
+        if not_object then
+            local target = target_from_file(name)
+            if not target then
+                target = target_from_file(name,'name')
+                if target then
+                    deps[i] = target.target
+                elseif not exists(name) then
+                    dump(t,'target')
+                    dump(t.deps,'deps')
+                    quit("cannot find dependency '%s'",name)
+                end
             end
         end
     end
-    if verbose and not dumped[t.target] then
+    if verbose  and not dumped[t.target] then
         dump(deps,t.target)
         dumped[t.target] = true
     end
@@ -1711,8 +1785,10 @@ function lake.install_plugin (parm)
         sub = '/lake/'
     end
     local dest = lake.home..sub..package..'.lua'
-    log ('copying '..fname..' to '..dest)
-    file.copy(fname, dest)
+    -- convention is that plugins use quit() if they cannot load...
+    dofile (fname)
+    -- so if we get here we're ready to roll
+    file.copy(fname, dest,true)
     if kind == 'lang' then
         -- lang packages are special since they are available
         -- without explicit require in lakefiles.
@@ -1754,7 +1830,7 @@ function lake.chdir (path)
         push(dir_stack,lfs.currentdir())
         local res,err = lfs.chdir(path)
         if not res then quit(err) end
-        log('changing directory',path)
+        log('changing directory '..path)
     end
     update_pwd()
 end
@@ -1772,6 +1848,12 @@ function lake.concurrent_jobs (nj, override)
         return true
     else
         return nil,"overriden by -j flag"
+    end
+end
+
+function lake.cleantree()
+    for pat in list {'.spec','.d','.o','.obj','.so','.exe','.pdb','.pch','.gch','.lib','.exp','.dll','.a'} do
+        utils.remove(lake.expand_args('*',pat,true))
     end
 end
 
@@ -1886,6 +1968,11 @@ local function process_args()
                 local name,lua = getarg(),'false'
                 if opt=='lua' then lua = 'true' end
                 lakefile,err = file.temp_copy(("tp,name = lake.deduce_tool('%s'); tp.shared{name,lua=%s}"):format(name,lua))
+            elseif opt == 'C' then
+                lake.cleantree()
+                os.exit()
+            else
+                quit("unknown option "..opt)
             end
         else
             if lake.is_remote(a) then a = lake.download(a) or '?' end
@@ -1935,7 +2022,7 @@ local function process_args()
             synth_args_index = i + 1
         else
             run_rule.in_ext = extension_of(run_file)
-            run_rule(a)
+            run_rule(run_file)
         end
     end
     -- if we are called as a program, not as a library, then invoke the specified lakefile
@@ -1986,7 +2073,7 @@ function finalize(reason)
         if stat then
             file.copy(TMPSPEC,lakefile..'.spec')
         else
-            log('unable to recreate spec file: ',err)
+            log('unable to recreate spec file: '..err)
         end
     end
     for _,h in ipairs(hooks) do
@@ -1997,7 +2084,7 @@ end
 -- recursively invoke lake at the given @path with the arguments @args
 function lake_(path,args)
     args = args or ''
-    exec('lake -d '..path..'  '..args,true)
+    exec('lake -d "'..path..'"  '..args,true)
 end
 
 utils.make_callable(lake,lake_)
@@ -2008,6 +2095,11 @@ function lake.go()
         specfile = nil
         outspec = nil
         quit('no targets defined')
+    end
+
+    for tt in list_(all_targets_list) do
+        tt.expanded = nil
+        tt.checked = nil
     end
 
     for tt in list_(all_targets_list) do
@@ -2049,18 +2141,16 @@ function lake.go()
             for t in list_(ALL_TARGETS) do
                 if extension_of(t) == baselang.obj_ext then
                     local dfile = replace_extension(t,'.d')
-                    if exists(dfile) then utils.remove(dfile) end
+                    if exists(dfile) then utils.remove(dfile,true) end
                 end
             end
         end)
         targets[index_list(targets,'clean')] = t
     end
-    utils.start_timer 'build'
     for t in list_(targets) do
         t.time = filetime(t.target)
         check(t.time,t)
     end
-    utils.end_timer()
     jobs_clear()
     if nbuild == 0 then
         if not synth_target then log 'lake: up to date' end
@@ -2069,7 +2159,10 @@ function lake.go()
     -- execute the target, passing the rest of the parms passed to Lake, unless we were
     -- explicitly asked to clean up.
     if synth_target and not synthesize_clean then
-        lake.run(synth_target,arg,synth_args_index)
+        local ok, res = lake.run(synth_target,arg,synth_args_index)
+        if not ok then -- pass on return code
+            os.exit(res)
+        end
     end
 end
 
@@ -2284,7 +2377,7 @@ function lake.set_flags(parms)
         -- @doc under Windows, we use the .def file if provided when linking a DLL
         function c.massage_link (name,deps,t)
             if t.ptype ~= 'dll' then return deps end
-            local def = exists(name..'.def')
+            local def = exists(name..'.def') or t.args.def
             if def and PLAT=='Windows' then
                 deps = copy_list(deps)
                 append(deps,def)
@@ -2347,7 +2440,7 @@ function lake.set_flags(parms)
             if t.ptype == 'dll' then
                 -- @doc [link:win] if there was an explicit .def file, use it; it will be relative to any base
                 local bname = t.basedir and path.join(t.basedir,name) or name
-                local def = exists(bname..'.def')
+                local def = exists(bname..'.def') or t.args.def
                 if def then
                     append(deps,'/DEF:'..def)
                 elseif t.lua or t.llua ~= nil then
@@ -2380,7 +2473,7 @@ function lake.set_flags(parms)
         -- compile tool. It is used so that Lake can parse the output of /showIncludes
         -- when using MSVC and create .d files in the same format as generated by GCC
         -- with the -MMD option.
-        local rule,file_pat,dfile,target,ls
+        local rule,file_pat,dfile,input,target,ls
         local function write_deps()
             if not dfile then quit("dependencies file is undefined") end
             local outd,err = io.open(dfile,'w')
@@ -2398,17 +2491,16 @@ function lake.set_flags(parms)
           -- with each line of output from the tool. This stage can filter the
           -- the output by returning some modified string.
           if action == 'start' then
-            target,rule = line[1],line[3]
+            target,input,rule = line[1],line[2],line[3]
             file_pat = '^[^:]-%'..rule.in_ext..'$'
             dfile = nil
           elseif action == 'end' then
             write_deps()
           elseif line:match(file_pat) then
-            local input
             -- the line containing the input file
             if dfile then write_deps() end
-            dfile,input = rule:deps_filename(line)
-            ls = {input}
+            dfile = path.replace_extension(target,'.d')
+            ls = {quote_if_necessary(input)}
           else
               local file = line:match('Note: including file:%s+(.+)')
               if file then
@@ -2464,9 +2556,9 @@ function lake.output_filter (lang,filter)
 end
 
 function concat_arg(pre,arg,sep,base)
-    return ' '..concat_list(pre,deps_arg(arg,base),sep)
+    return ' '..concat_list(deps_arg(arg,base),pre,sep)
 end
-
+lake.concat_arg = concat_arg
 
 local function _compile(name,compile_deps,lang)
     local args = (type(name)=='table') and name or {}
@@ -2479,8 +2571,20 @@ local function _compile(name,compile_deps,lang)
         cflags = cflags .. ' /TP'
     end
     compile_deps = compile_deps or args.compile_deps or args.headers
+    -- preprocessor symbols can be defined with a Lua map-like table, if desired
     if args.defines then
-        cflags = cflags..concat_arg(lang.DEFDEF,args.defines,' ')
+        local defs = args.defines
+        if type(defs)=='table' and #defs == 0 then
+            local mdefs = defs
+            defs = {}
+            for key,value in pairs(mdefs) do
+                if value ~= true then
+                    key = key..'='..quote_if_necessary(value)
+                end
+                append(defs,key)
+            end
+        end
+        cflags = cflags..concat_arg(lang.DEFDEF,defs,' ')
     end
     if args.incdir then
         cflags = cflags..concat_arg(lang.incdir,args.incdir,' ',args.base)
@@ -2554,12 +2658,13 @@ local function examine_config_vars(package,subtype)
     local incdir_v = upack..'_INCLUDE_DIR'
     local libdir_v = upack..'_LIB_DIR'
     local libs_v = upack..'_LIBS'
+    local libss_v = upack..'_LIBS_STATIC'
     local dir_v = upack..'_DIR'
     local cflags_v = upack..'_CFLAGS'
     local lflags_v = upack..'_LFLAGS'
 
-    local incdir,libdir,libs,dir,cflags,lflags =
-        _G[incdir_v],_G[libdir_v],_G[libs_v],_G[dir_v],_G[cflags_v],_G[lflags_v]
+    local incdir,libdir,libs,libss,dir,cflags,lflags =
+        _G[incdir_v],_G[libdir_v],_G[libs_v],_G[libss_v],_G[dir_v],_G[cflags_v],_G[lflags_v]
 
     local function checkdir(val,var,default)
         local none = val == nil
@@ -2591,8 +2696,14 @@ local function examine_config_vars(package,subtype)
         if PLAT=='Windows' or libdir ~= nil then checkdir(libdir,libdir_v) end
         checkdir(libs,libs_v,package)
     end
-    if libs and CC == 'cl' and subtype == 'static' then
-        libs = libs..'_static'
+    -- the program wants to link statically against this need
+    if subtype == 'static' then
+        if libss then -- specifically specified!
+            libs = libss
+        -- otherwise we use lake convention for MSVC
+        elseif libs and CC == 'cl' and subtype == 'static' then
+            libs = concat_arg('',libs,'_static ')
+        end
     end
     local res = {incdir = incdir, libdir = libdir, libs = libs, flags = cflags, libflags = lflags}
     if not next(res) then -- we found nuffink...
@@ -2641,6 +2752,7 @@ local function handle_unknown_need (name,args,static)
         local ok,needs,nfun,needs_package
         local pack,sub = utils.split2(name,'%-')
         pack = pack or name
+        sub = sub or (static and 'static' or nil)
         needs_package = 'lake.needs.'..pack
 
         ok,nfun = pcall(require,needs_package)
@@ -2738,7 +2850,12 @@ define_need('unicode',function()
 end)
 
 
-local lr_cfg
+local function check_luarocks_variables ()
+    if IGNORE_LUAROCKS then return false end
+    local ok,lr_cfg = pcall(require,'luarocks.cfg')
+    if not ok then return false end
+    return lr_cfg.variables
+end
 
 -- the assumption here that the second item on your Lua paths is the 'canonical' location. Adjust accordingly!
 function get_lua_path (p)
@@ -2760,12 +2877,12 @@ function update_lua_flags (args,static)
     using_LfW = env 'LUA_DEV'
     if LUA_INCLUDE_DIR == nil then
         -- if LuaRocks is available, we ask it where the Lua headers are found...
-        if not IGNORE_LUAROCKS and not lr_cfg and pcall(require,'luarocks.cfg') then
-            lr_cfg = luarocks.cfg
-            LUA_INCLUDE_DIR = lr_cfg.variables.LUA_INCDIR
-            LUA_LIB_DIR = lr_cfg.variables.LUA_LIBDIR
+        local lr_vars = check_luarocks_variables()
+        if lr_vars then
+            LUA_INCLUDE_DIR = lr_vars.LUA_INCDIR
+            LUA_LIB_DIR = lr_vars.LUA_LIBDIR
             if Windows then
-                LUA_DLL = find_lua_dll(lr_cfg.variables.LUAROCKS_PREFIX..'/2.0')
+                LUA_DLL = find_lua_dll(lr_vars.LUAROCKS_PREFIX..'/2.0')
             end
         elseif Windows then -- no standard place, have to deduce this ourselves!
             local lua_path = utils.which(LUA_EXE)  -- usually lua, could be lua51, etc!
@@ -2831,6 +2948,7 @@ local program_fields = {
     libs=true, -- list of libraries
     libflags=true, -- list of flags for linking
     subsystem=true, -- (Windows) GUI application
+    def=true, -- (Windows) explicit .def file
     strip=true,  -- strip symbols from output
     rules=true,inputs=true, -- explicit set of compile targets
     shared=true,dll=true, -- a DLL or .so (with lang.library)
@@ -2941,7 +3059,7 @@ local function _program(ptype,name,deps,lang)
             end
         end
         if args.libdir then
-            libs = libs..concat_arg(c.LIBDIR,args.libdir,' ')
+            libs = libs..concat_arg(baselang.LIBDIR,args.libdir,' ')
         end
         -- @lang an opportunity for this anguage to modify the lib flags
         if lang.flags_handler then
@@ -3010,30 +3128,36 @@ local function _program(ptype,name,deps,lang)
     else
         args = {} -- _probably_ an error??
     end
+    ---- setting output directory and ensuring that it exists ----
     args.odir = args.odir or args.output_directory
-    if args.base then
-        if args.odir then
-            if not isabs(args.odir) then
-                args.odir = join(args.base,args.odir)
-            end
-        else
-            args.odir = args.base
-        end
-    end
-    -- @compile by default, setting base also sets the output directory,
-    -- if not specified (args.odir = false will suppress this)
-    -- we can now create a rule object to compile files of this type to object files,
-    -- using the appropriate compile command.
     local odir = args.odir
+    -- @compile setting 'odir' means we want a separate output directory. If a boolean,
+    -- then we use prefix and debug/release.
     if odir then
-        -- @compile setting 'odir' means we want a separate output directory. If a boolean,
-        -- then we make a reasonably intelligent guess.
         if odir == true then
             odir = PREFIX..choose(args.debug,'debug','release')
         end
     end
+    -- by default, setting base also sets the output directory,
+    -- if not specified (args.odir = false will suppress this)
+    if args.base then
+        if odir then
+            if not isabs(odir) then
+                odir = join(args.base,odir)
+            end
+        else
+            odir = args.base
+        end
+        args.odir = odir
+    end
     if odir and not isdir(odir) then path.mkdir(odir) end
 
+    if args.def and WINDOWS then
+        args.def = join(args.base,args.def)
+    end
+
+    -- we can now create a rule object to compile files of this type to object files,
+    -- using the appropriate compile command.
     local pcr
     if not cr and lang.compile then
         -- generally a good idea for Unix shared libraries
@@ -3081,7 +3205,6 @@ local function _program(ptype,name,deps,lang)
         elseif ptype == 'dll' then
             tname = name..(lang.DLL_EXT or DLL_EXT)
             libs = libs..' '..lang.LINK_DLL
-            if C_LINK_PREFIX then link_prefix = C_LINK_PREFIX end
         elseif ptype == 'lib' then
             local dir,fname = splitpath(name)
             tname = lang.LIB_PREFIX..fname..lang.LIB_EXT
@@ -3126,6 +3249,7 @@ local function _program(ptype,name,deps,lang)
         t.debug = args.debug
         t.ptype = ptype
         t.basedir = args.base
+        t.args = args
         if args.cdir then
             t.dir = args.cdir
             t.cdir = args.cdir
@@ -3182,7 +3306,7 @@ function lake.add_group (lang)
     end
 end
 
-for lang in list_ {c,c99,cpp,cpp11} do
+for lang in list_ {c,c99,cpp,cpp11,s} do
     lake.add_prog(lang)
     lake.add_shared(lang)
     lake.add_library(lang)
@@ -3219,8 +3343,8 @@ function default(...)
 end
 
 target = {}
-local tmt = utils.make_callable(target,new_target)
-tmt.__index = function(obj,name)
+local tmm = utils.make_callable(target,new_target)
+tmm.__index = function(obj,name)
     return function(...)
         return new_target(name,...)
     end
@@ -3238,6 +3362,16 @@ local function  action_(name,action,...)
     end
     return new_target(name,nil,function() action(unpack(args)) end)
 end
+
+function lake.run_target(t,args)
+	local name = t.name .. '-output'
+	args = args or {}
+	append(args,'>'..name)
+	return new_target(name,t,function()
+		lake.run(t,args,1)
+	end)
+end
+tmt.run = lake.run_target
 
 local amt = utils.make_callable(action,action_)
 amt.__index = function(obj,name)

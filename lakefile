@@ -11,6 +11,7 @@
 local lfs = require 'lfs'
 local append,join,exists = table.insert,path.join,path.exists
 local lua52 = _VERSION:match '5.2'
+local quote = path.quote
 
 local load_config
 local function load_config (src, env, dont_quit)
@@ -240,9 +241,9 @@ if config.custom_lua_path or config.no_dlink then
         path = path == true and PWD or path
         -- to get our path properly converted to a string in luaconf.h
         path = path:gsub('\\','\\\\')
-        xdefs = defs..' '..'LUA_CUSTOM_DIR='..path
+        xdefs = defs..' '..'LUA_CUSTOM_DIR='..quote(path)
     else
-        xdefs = nil
+        xdefs = compat
     end
 else
     xdefs = defs
@@ -281,7 +282,7 @@ function generate_module_targets(shared)
     local modules = {}
     tests = io.open(config.name..'.tests','w')
     -- an unfortunate global necessity for any .lake files
-    ARGS = {incdir=LUADIR}
+    ARGS = {incdir=quote(LUADIR)}
     if shared then -- we link these DLLs against Lua
         ARGS.dll = true
         ARGS.dynamic = config.dynamic
@@ -351,8 +352,9 @@ function luabuild.library (spec)
             if dir == '.' then
                 incdir[i] = path.abs(ARGS.base)
             end
+            incdir[i] = quote(incdir[i])
         end
-        table.insert(incdir,1,LUADIR)
+        table.insert(incdir,1,quote(LUADIR))
         spec.incdir = incdir
     end
     spec.lang = nil
