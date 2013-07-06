@@ -2,5 +2,5 @@
 -- against linenoise
 
 return luabuild.library{'linenoise',src='linenoise',
-    incdir = PWD..'linenoise' -- PWD is luabuild directory
+    incdir = path.quote(PWD..'linenoise') -- PWD is luabuild directory
 }
