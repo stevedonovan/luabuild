@@ -53,6 +53,7 @@ local function expand_dollar(line,i1)
         if not f then return end
         return {prefix..f} 
     else -- environment variable?
+    	prefix = line:sub(1,i1)
         return append_candidates(nil,posix.getenv(),prefix,name)
     end
 end
@@ -106,7 +107,7 @@ local function path_candidates(line)
         return
     end
     front, path = line:sub(1,i1-1), line:sub(i1)
-    i1 = path:find '[.%w%-]*$'
+    i1 = path:find '[.%w_%-]*$'
     if not i1 then return end
     path,name = path:sub(1,i1-1), path:sub(i1)
     local fullpath, sc, dpath = path,at(path,1),path
@@ -399,7 +400,12 @@ function shell_command_handler (line)
         cmd,args = line:match '^(%S+)(.*)$'
     end
     args = args:gsub('^%s*','')
-    if cmd == 'cd' then
+    if cmd:match '^%d+$' then
+    	arg = dir_at_index(tonumber(cmd))
+    	if not arg then print 'no such index'; return true end
+    	push(dirstack,posix.getcwd())
+    	change_directory(arg)
+    elseif cmd == 'cd' then
         if args == '' then
             dirs()
             return true
@@ -437,7 +443,7 @@ function shell_command_handler (line)
     elseif cmd == 'back' then
         back()
     elseif cmd == 'hist' then
-        return exec(('tail %s |-lf'):format(our_history))
+        return exec(("tail %s | grep '^%s' |-lf"):format(our_history,SHELL_ESC))
     elseif cmd == 'export' then
         local var = args:match '^(.-)='
         local cmd = (('%s && echo %s \\"$%s\\" |-lsetenv'):format(args,var,var))
@@ -478,7 +484,9 @@ _G.luaish = lsh -- global for rc file
 
 local data
 
-safe_dofile(home..'/.luairc.lua')
+if not safe_dofile(home..'/.luairc.lua') then
+    print("customize with ~/.luaric.lua")
+end
 local pfile = home..'/.luai-data'
 local chunk = loadfile(pfile)
 if chunk then
