@@ -68,10 +68,19 @@ local function lua_candidates(line)
     local res = expand_dollar(line)
     if res then return res end
 
-    -- identify the expression!
+    -- identify the expression - identifier with maybe field or method access
     local i1,i2 = line:find('[.:%w_]+$')
     if not i1 then return end
     local front,partial = line:sub(1,i1-1), line:sub(i1)
+    if i1 > 1 and at(line,i1-1) == "'" then
+	    local res = {}	    
+	    for _,f in ipairs(posix.dir(path)) do 
+	        if f:sub(1,#partial)==partial then
+	            push(res,front..f)
+	        end
+	    end
+	    return res
+    end
     local prefix, last = partial:match '(.-)([^.:]*)$'
     local t = _G
     if #prefix > 0 then        
@@ -377,8 +386,9 @@ function lsh.add_alias(name,cmd)
     alias[name] = cmd
 end
 
-local function expand_lua_globals(line)
-    return line:gsub('%$(%a+)',function(name)
+local function expand_lua_globals(line)    
+    return line:gsub('%$([%w_]+)',function(name)
+        if name == '_' then name = '__' end
         local val = _G[name]
         if val then return tostring(val)
         else return '$'..name
@@ -390,15 +400,16 @@ function shell_command_handler (line)
     line = line:sub(2)
     line = line:gsub ('^%s*','')
     line = expand_lua_globals(line)
-    local cmd,args = line:match '^(%S+)(.*)$'
+    local cmd,args = line:match '^(%S+)%s*(.*)$'
     if not args then
         io.write 'bad command syntax\n'
         return true
     end
+    _G.__ = line
     if alias[cmd] then
         line = alias[cmd]:format(args)
         cmd,args = line:match '^(%S+)(.*)$'
-    end
+    end    
     args = args:gsub('^%s*','')
     if cmd:match '^%d+$' then
     	arg = dir_at_index(tonumber(cmd))
@@ -456,7 +467,9 @@ function shell_command_handler (line)
             lsh.add_alias(name,exp)
         end
     else -- plain shell command
-        print(line)
+    	if DBG then
+        	print(line)
+        end
         return exec(line)
     end
     return true
