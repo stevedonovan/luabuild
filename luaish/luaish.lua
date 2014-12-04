@@ -52,6 +52,8 @@ local function expand_dollar(line,i1)
         local f = lsh.file_by_index(name)
         if not f then return end
         return {prefix..f} 
+    elseif name == '_' then -- last command
+        return {prefix..(_G['__'] or '')}
     else -- environment variable?
     	prefix = line:sub(1,i1)
         return append_candidates(nil,posix.getenv(),prefix,name)
@@ -99,7 +101,30 @@ local function lua_candidates(line)
     if mt and is_pair_iterable(mt.__index) then
         append_candidates(res,mt.__index,prefix,last)
     end
+    -- smallest matches first
+    table.sort(res,function(a,b)
+        return #a < #b
+    end)    
     return res
+end
+
+local function command_history_candidates(line)
+    local esc = at(line,1)
+    line = line:sub(1)
+    local cmd = ("grep '^%s' %s/.luai-history"):format(_G.SHELL_ESC,home)
+    local f = io.popen(cmd,'r')
+    local matches = {}
+    for line in f:lines() do
+        append(matches,line)
+    end
+    f:close()
+    local cc = {}
+    for i = #matches,1,-1 do
+        if matches[i]:sub(1,#line) == line then
+            append(cc,matches[i])
+        end
+    end
+    return cc
 end
 
 local function is_directory(path)
@@ -114,6 +139,9 @@ local function path_candidates(line)
         return expand_dollar(line,i1)
     elseif not i1 then
         return
+    end
+    if line:match '^.[%w_]+$' then
+        return command_history_candidates(line)    
     end
     front, path = line:sub(1,i1-1), line:sub(i1)
     i1 = path:find '[.%w_%-]*$'
@@ -136,7 +164,7 @@ local function path_candidates(line)
     local res = {}
     local all = name == ''
     for _,f in ipairs(posix.dir(path)) do 
-        if all or f:sub(1,#name)==name then
+        if not (f=='.' or f=='..') and (all or f:sub(1,#name)==name) then
             push(res,front..dpath..f)
         end
     end
@@ -147,9 +175,22 @@ local function path_candidates(line)
     return res
 end
 
+local auto_shell_mode
+
+local function shell_mode(s)
+    return at(s,1) == _G.SHELL_ESC or auto_shell_mode
+end
+
+function lsh.get_prompt(firstline)
+    if not auto_shell_mode then return nil
+    else
+        return '$> '
+    end
+end
+
 local function completion_handler(c,s)
     local cc
-    if at(s,1) == SHELL_ESC then -- shell path completion
+    if shell_mode(s) then -- shell path completion
         cc = path_candidates(s)
         if not cc then return end
     else -- otherwise Lua...
@@ -185,7 +226,7 @@ end
 
 function lsh.add_completion(pat,cf)
     our_completions[pat] = cf
-end  
+end
 
 local file_list = {}
 
@@ -238,7 +279,7 @@ end
 local shell_command_handler
 
 function lsh.checkline(b)
-    if at(b,1) == _G.SHELL_ESC then
+    if shell_mode(b) then
         local err, res = pcall(shell_command_handler,b)
         if not err then
             print('luaish error',res)
@@ -293,7 +334,6 @@ lsh.print = function(f,name)
         f:write(line,'\n')
     end
 end
-
 
 --- managing directory stack----
 local dirstack = {}
@@ -386,6 +426,12 @@ function lsh.add_alias(name,cmd)
     alias[name] = cmd
 end
 
+function lsh.show_aliases()
+    for k,v in pairs(alias) do
+        print(k,v)
+    end
+end
+
 local function expand_lua_globals(line)    
     return line:gsub('%$([%w_]+)',function(name)
         if name == '_' then name = '__' end
@@ -397,8 +443,19 @@ local function expand_lua_globals(line)
 end
 
 function shell_command_handler (line)
-    line = line:sub(2)
+    if not auto_shell_mode then
+        line = line:sub(2)
+    end
     line = line:gsub ('^%s*','')
+    if line == "" then
+        auto_shell_mode = true
+        return true
+    elseif line == 'exit' then
+        if auto_shell_mode then
+            auto_shell_mode = false
+        end
+        return true
+    end
     line = expand_lua_globals(line)
     local cmd,args = line:match '^(%S+)%s*(.*)$'
     if not args then
@@ -460,6 +517,10 @@ function shell_command_handler (line)
         local cmd = (('%s && echo %s \\"$%s\\" |-lsetenv'):format(args,var,var))
         return exec(cmd)
     elseif cmd == 'set' then
+        if args:match '^%s*$' then
+            lsh.show_aliases()
+            return true
+        end        
         local name,exp = args:match '(%S+)%s+(.+)'
         if not name then
             print("syntax is 'set name command'")
@@ -491,14 +552,14 @@ ok,_G.config = pcall(require,'config')
 lsh.set_shortcut ('fn', "function ")
 lsh.set_shortcut('rt','return')
 
-_G.SHELL_ESC='.'
+_G.SHELL_ESC='!'
 _G.posix = posix
 _G.luaish = lsh -- global for rc file
 
 local data
 
 if not safe_dofile(home..'/.luairc.lua') then
-    print("customize with ~/.luaric.lua")
+    print("customize with ~/.luairc.lua")
 end
 local pfile = home..'/.luai-data'
 local chunk = loadfile(pfile)

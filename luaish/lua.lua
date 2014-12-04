@@ -28,7 +28,7 @@ else
     LUA_COPYRIGHT = "Copyright (C) 1994-2011 Lua.org, PUC-Rio"
     eof_ender = '<eof>'
 end
-local EXTRA_COPYRIGHT = "lua.lua (c) David Manura, 2008-08"
+local EXTRA_COPYRIGHT = "lua.lua (c) David Manura, 2008-2014"
 
 -- Note: don't allow user scripts to change implementation.
 -- Check for globals with "cat lua.lua | luac -p -l - | grep ETGLOBAL"
@@ -37,7 +37,7 @@ local _G = _G
 local assert = assert
 local collectgarbage = collectgarbage
 local loadfile = loadfile
-local loadstring = loadstring or load
+local load = load or loadstring
 local pcall = pcall
 local rawget = rawget
 local select = select
@@ -151,7 +151,7 @@ function dofile(name)
 end
 
 local function dostring(s, name)
-    local f, msg = loadstring(s, name)
+    local f, msg = load(s, name)
     if f then f, msg = docall(f) end
     return report(f, msg)
 end
@@ -178,9 +178,15 @@ local function getargs (argv, n)
 end
 
 local function get_prompt (firstline)
-  -- use rawget to play fine with require 'strict'
-    local pmt = rawget(_G, firstline and "_PROMPT" or "_PROMPT2")
-    local tp = type(pmt)
+    local pmt, tp
+    if using_lsh then
+        pmt = lsh.get_prompt(firstline)
+    end
+    if not pmt then
+      -- use rawget to play fine with require 'strict'
+        pmt = rawget(_G, firstline and "_PROMPT" or "_PROMPT2")
+    end
+    tp = type(pmt)
     if tp == "string" or tp == "number" then
         return tostring(pmt)
     end
@@ -217,13 +223,17 @@ local function pushline (firstline)
     end
 end
 
+-- Try to compile line on the stack as 'return <line>'; on return, stack
+--- has either compiled chunk or original line (if compilation failed).
+local function addreturn (b)
+    return load('return '..b,"=stdin")
+end
 
-local function loadline ()
-    local b = pushline(true)
-    if not b then return -1 end  -- no input
+-- Read multiple lines until a complete Lua statement
+local function multiline (b)
     local f, msg
     while true do  -- repeat until gets a complete line
-        f, msg = loadstring(b, "=stdin")
+        f, msg = load(b, "=stdin")
         if not incomplete(msg) then break end  -- cannot try to add lines?
         local b2 = pushline(false)
         if not b2 then -- no more input?
@@ -231,14 +241,30 @@ local function loadline ()
         end
         b = b .. "\n" .. b2 -- join them
     end
+    return f, msg, b
+end
 
+-- Read a line and try to load (compile) it first as an expression (by
+-- adding "return " in front of it) and second as a statement. Return
+-- the final status of load/call with the resulting function (if any)
+-- in the top of the stack.  Extension: one can suppress the return
+-- by ending the expression with ';'
+local function loadline ()
+    local f,msg
+    local b = pushline(true)
+    if not b then return -1 end  -- no input
+    if not b:match ';$' then
+        f,msg = addreturn(b)
+    end
+    if not f then -- 'return ..' did not work
+        f,msg,b = multiline(b)
+    end
     saveline(b)
-
     return f, msg
 end
 
-
-local function dotty ()
+-- Do the REPL
+local function doREPL ()
     local oldprogname = progname
     progname = nil
     using_lsh,lsh = pcall(require, 'luaish')
@@ -392,11 +418,11 @@ else
 end
 
 if has.i then
-    dotty()
+    doREPL()
 elseif script == 0 and not has.e and not has.v then
     if lua_stdin_is_tty() then
         print_version()
-        dotty()
+        doREPL()
     else
         dofile(nil)  -- executes stdin as a file
     end
