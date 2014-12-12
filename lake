@@ -9,6 +9,7 @@ Lake version 1.4  A Lua-based Build Engine
   lake <flags> <assigments> <target(s)>
   * flags:
     -v verbose
+    -q quiet
     -t test (show but don't execute commands)
     -n don't synthesize target
     -d initial directory
@@ -18,6 +19,7 @@ Lake version 1.4  A Lua-based Build Engine
     -j N run jobs in parallel where possible.
     -f FILE read a named lakefile
     -e EXPR evaluate a lakefile expression
+    -L MOD load a module lake.MOD first
     -l FILE build a shared library/DLL
     -lua FILE build a Lua C extension
     -p FILE build a program
@@ -26,7 +28,7 @@ Lake version 1.4  A Lua-based Build Engine
     -install FILE install a new need or language
     -C really clean a directory tree!
 
-  * assigmnents: arguments of the form VAR=STRING assign the string
+  * assignments: arguments of the form VAR=STRING assign the string
     to the global VAR. The env variable LAKE_PARMS may contain
     extra assignments.
 
@@ -48,8 +50,6 @@ local verbose = false
 local specific_targets = {}
 local nbuild = 0
 local all_targets_list = {}
-local TMPSPEC = '_t_.spec'
-local specfile, outspec
 local change_dir,finalize,exists,Windows
 
 TESTING = false
@@ -85,8 +85,7 @@ function pick(a,b)
 end
 
 file = {ext='*'}
-COPY = choose(Windows,'copy' ,'cp ')
-REMOVE = choose(Windows,'ren ','mv ')
+COPY = choose(Windows,'copy','cp')
 file.compile = '$(COPY) $(DEPENDS) $(TARGET)'
 
 
@@ -301,12 +300,7 @@ local function quote_if_necessary (file)
         if file:find '\\$' then
             file = file .. '\\\\'
         end
---~         if Windows then
-            file = '"'..file..'"'
---~         else
---~             file = file:gsub('([^\\])%s','%1\\ ')
---~         end
-
+        file = '"'..file..'"'
     end
     return file
 end
@@ -427,18 +421,27 @@ function path.extension_of(path)
 end
 local extension_of = path.extension_of
 
+local user_home = NEW_HOME
+
+local function find_user_home()
+    if not user_home then
+        user_home = env 'HOME'
+        if not user_home then -- has to be Windows
+            user_home = env 'USERPROFILE' or (env 'HOMEDRIVE' .. env 'HOMEPATH')
+        elseif ENV.USER == 'root' then
+            user_home = utils.shell("echo ~"..ENV.SUDO_USER)
+        end
+    end
+end
+
 function path.expanduser(path)
     if path:sub(1,1) == '~' then
-        local home = env 'HOME'
-        if not home then -- has to be Windows
-            home = env 'USERPROFILE' or (env 'HOMEDRIVE' .. env 'HOMEPATH')
-        end
-        return home..path:sub(2)
+        find_user_home()
+        return user_home..path:sub(2)
     else
         return path
     end
 end
-local expanduser = path.expanduser
 
 function path.replace_extension (path,ext)
     local p1,p2 = splitext(path)
@@ -505,15 +508,6 @@ utils = {}
 local start_t, msg_t
 
 utils.clock = os.clock
-
-function utils.start_timer (msg)
-    msg_t = msg
-    start_t = utils.clock()
-end
-
-function utils.end_timer ()
-    warning("'%s' took %5.2f sec",msg_t,utils.clock()-start_t)
-end
 
 function utils.split(s,re)
     local i1 = 1
@@ -645,14 +639,22 @@ function utils.remove(items,single)
         end
     end
     for _,f in ipairs(items) do
-        if os.remove(f) then
+        if type(f)=='string' and os.remove(f) then
             log ('removing',f)
         end
     end
 end
 
+local exec
+
 function utils.remove_files (mask)
-    exec(REMOVE..mask)
+    local cmd
+    if Windows then
+        cmd = 'del '..mask
+    else
+        cmd = 'rm '..mask
+    end
+    exec(cmd)
 end
 
 function utils.make_callable (obj,fun)
@@ -686,13 +688,32 @@ function utils.which (prog)
     end
 end
 
-function is_simple_list (t)
-    return type(t) == 'table' and t[1]
+function utils.copy_table (t)
+    local res = {}
+    for k,v in pairs(t) do
+        res[k] = v
+    end
+    return res
 end
+
+function is_simple_list (t)
+    return type(t) == 'table' and #t > 0
+end
+
+local function append_table(l1,l2,no_overwrite)
+    if not l2 then return end
+    for k,v in pairs(l2) do
+        if not no_overwrite or l1[k] == nil then
+            l1[k] = v
+        end
+    end
+    return l1
+end
+utils.append_table = append_table
 
 list = {}
 
-local append_list,copy_list,copy_table,append_table,erase_list,concat_list,find_list,index_list
+local append_list,index_list
 
 function list.extend(l1,l2)
     for i,v in ipairs(l2) do
@@ -722,29 +743,8 @@ append_list_unique = list.extend_unique
 function list.copy (l1)
     return append_list({},l1)
 end
-copy_list = list.copy
 
-function copy_table (t)
-    local res = {}
-    for k,v in pairs(t) do
-        res[k] = v
-    end
-    return res
-end
-table.copy = copy_table
-
-function append_table(l1,l2,no_overwrite)
-    if not l2 then return end
-    for k,v in pairs(l2) do
-        if not no_overwrite or l1[k] == nil then
-            l1[k] = v
-        end
-    end
-    return l1
-end
-table.update = append_table
-
-function table.set(ls)
+function utils.set(ls)
     local res = {}
     for item in list_(ls) do
         res[item] = true
@@ -760,7 +760,6 @@ function list.erase(l1,l2)
         end
     end
 end
-erase_list = list.erase
 
 function list.concat(ls,pre,sep)
     local res = ''
@@ -774,7 +773,6 @@ function list.concat(ls,pre,sep)
     end
     return res
 end
-concat_list = list.concat
 
 function list.index(ls,val)
     for i,v in ipairs(ls) do
@@ -790,7 +788,6 @@ function list.find(ls,field,value)
         end
     end
 end
-find_list = list.find
 
 function list_(ls)
     if type(ls) == 'string' then
@@ -827,11 +824,12 @@ function list.parm_concat(ls,istart)
     return s
 end
 
---end_of_libs---------------------------------------------
-
-local job_execute, jobs_clear, found_threads, winapi, posix
+local found_threads, winapi, posix
 if Windows then
     found_threads, winapi = pcall(require, 'winapi')
+    if found_threads then
+        utils.sleep = winapi.sleep
+    end
 else
     found_threads, posix = pcall(require, 'posix')
 	if found_threads and posix.clock_gettime then
@@ -839,8 +837,17 @@ else
 			local secs,nsec = posix.clock_gettime()
 			return secs + nsec/1e9
 		end
+        function utils.sleep (msec)
+            local sec = math.floor(msec/1000)
+            msec = msec - 1000*sec
+            posix.nanosleep(sec,1e6*msec)
+        end
 	end
 end
+
+--end_of_libs---------------------------------------------
+
+local job_execute, jobs_clear
 
 local function command_line (cmd)
     local tmpfile,cmdline = file.temp()
@@ -931,13 +938,11 @@ if found_threads then
         else
             -- crucial bit of synchronization: only run processes in parallel
             -- generated from the _same rule_
-            if t.rule ~= current_rule then
-                while #processes > 0 do
-                    jobs_wait()
-                end
+            if t.rule ~= current_rule then -- so clear the old rule's job queue
+                jobs_wait()
                 current_rule = t.rule
             end
-            if #processes == n_threads then
+            if #processes == n_threads then -- job queue is full
                 jobs_wait()
             end
             if #processes < n_threads then
@@ -1029,7 +1034,7 @@ end
 lake = {}
 
 function lake.set_log (f)
-    log = f
+    log = f or function() end
 end
 
 local baselang = {}
@@ -1048,7 +1053,6 @@ c = new_lang(nil,{ext='.c'})
 
 -- these chaps inherit from C lang for their default compile behaviour
 cpp = new_lang(c,{ext='.cpp'})
-f = new_lang(c,{ext='.f'})
 c99 = new_lang(c,{ext='.c'})
 s = new_lang(c,{ext='.s'})
 
@@ -1063,7 +1067,6 @@ wresource = {ext='.rc'}
 local extensions = {
     ['.c'] = c, ['.cpp'] = cpp, ['.cxx'] = cpp, ['.C'] = cpp,
     ['.s'] = s,
-    ['.f'] = f, ['.for'] = f, ['.f90'] = f,
 }
 
 local deps_arg, concat_arg, isrule, istarget
@@ -1202,21 +1205,6 @@ local function new_target(tname,deps,cmd,upfront,dont_massage_deps)
     else
         append(all_targets_list,t)
     end
-    if type(cmd) == 'string' then
-        if specfile then
-            -- @doc [checking against specfile]  for each target, we check the command generated
-            -- against the stored command, and delete the target if the command is different.
-            local oldcmd = specfile:read()
-            if oldcmd ~= cmd then
-                if verbose then
-                    log(oldcmd); log(cmd)
-                    log('command changed: removing '..tname)
-                end
-                os.remove(tname)
-            end
-        end
-        if outspec then outspec:write(cmd,'\n') end
-    end
     return t
 end
 
@@ -1258,15 +1246,8 @@ function rt:__tostring ()
     return 'rule: '..(self.label or self.cmd)..' ('..#self.targets..')'
 end
 
--- this is used by the CL output parser: e.g, cl will put out 'hello.c' and this
--- code will return 'release\hello.d' and '..\hello.c'
---~ function rt.deps_filename (r,name)
---~     local t = find_list(r.targets,'base',splitext(name))
---~     return replace_extension(t.target,'.d'), t.input
---~ end
 
 local deps_from_d_file
-
 
 -- add a new target to a rule object, with name @tname and optional dependencies @deps.
 -- @tname may have an extension which overrides the default. If the in-extension is '*',
@@ -1328,7 +1309,7 @@ function rt.add_target(r,tname,deps,root)
     end
     table.insert(deps,1,input)
     -- we can be dependent on headers extracted from a .d file
-    if lang and lang.uses_dfile then
+    if lang and lang.uses_dfile and not NODEPS then
         local ddeps = deps_from_d_file(replace_extension(target_name,'.d'))
         if ddeps then
             append_list_unique(deps, ddeps)
@@ -1467,7 +1448,7 @@ end
 
 -- given a filename @fname, find out the corresponding target object.
 local function target_from_file(fname,target)
-    return find_list(all_targets_list,target or 'target',fname)
+    return list.find(all_targets_list,target or 'target',fname)
 end
 
 local basic_print
@@ -1536,7 +1517,7 @@ local function fire(t)
         -- a target with new rule was encountered, and we have to actually compile the
         -- combined targets using a fake target.
         if #combined_targets > 0 then
-            local fake_target = copy_table(first_target)
+            local fake_target = utils.copy_table(first_target)
             fake_target.fake = true
             fake_target.input = table.concat(combined_targets,' ')
             fire(fake_target)
@@ -1562,7 +1543,7 @@ local function fire(t)
         deps = {}
         for i = 1,#odeps do
             deps[i] = t.cdir and relative_to(odeps[i],t.cdir) or odeps[i]
-            deps[i] = quote_if_necessary(odeps[i])
+            deps[i] = quote_if_necessary(deps[i])
         end
         DEPENDS = table.concat(deps,' ')
     end
@@ -1575,6 +1556,9 @@ local function fire(t)
             if not basic_print then
                 log(cmd)
             end
+            -- whatever else happens, ensure _up front_ that target is modified,
+            -- since we could be launching the tool asynchronously!
+            lfs.touch(t.target)
             job_execute(cmd,t,function(ok,code,inf)
                 local filter = t.rule.filter or nop
                 local outf = t.rule.stdout and io.stdout or io.stderr
@@ -1690,10 +1674,6 @@ local function expand_dependencies(t)
             name = get_dependencies(name)
             deps[i] = name
             not_object = not is_object(name)
---~             if type(name) ~= 'string' then
---~                 dump(name,'NOT FILE')
---~                 quit("not a file name")
---~             end
         end
         if not_object then
             local target = target_from_file(name)
@@ -1725,14 +1705,27 @@ end
 
 local getter
 
-local canonical_lake_files = REMOTE_LAKE_URL or 'http://stevedonovan.github.com/files/'
+local function powershell_download (pathname,url)
+    local pscmd = 'powershell -ExecutionPolicy Bypass -NonInteractive -File tmp.ps1'
+    local templ = [[
+    $url = "%s"
+    $path = "%s"
+    (new-object System.Net.WebClient).DownloadFile($url,$path)
+    ]]
+    file.write('tmp.ps1',templ:format(url,pathname))
+    return utils.execute(pscmd)
+end
+
+local canonical_lake_files = REMOTE_LAKE_URL or 'http://stevedonovan.github.io/lake/plugins/'
 
 function lake.download (url,pathname)
     if not getter then
         if utils.which 'curl' then
             getter = 'curl -s -f -o '
         elseif utils.which 'wget' then
-            getter = 'wget -q _N -O '
+            getter = 'wget  -O '
+        elseif utils.which 'powershell' then
+            getter = powershell_download
         else
             quit 'cannot find either wget or curl on your system'
         end
@@ -1744,7 +1737,12 @@ function lake.download (url,pathname)
     end
     log ('downloading... '..url)
     pathname = pathname or path.basename(url)
-    local stat = utils.execute(getter..pathname..' '..url,true)
+    local stat
+    if type(getter) == 'string' then
+        stat = utils.execute(getter..pathname..' '..url,true)
+    else
+        stat = getter(pathname,url)
+    end
     return stat and path.exists(pathname)
 end
 
@@ -1758,7 +1756,7 @@ local function exists_lua(name) return exists(name..'.lua') end
 -- a language like 'boo.lang.lua'; general packages are 'foo.lake.lua'
 -- The .lua extension is not necessary and the file may be remote.
 function lake.install_plugin (parm)
-    if path.extension_of(parm) ~= 'lua' then parm = parm..'.lua'  end
+    if path.extension_of(parm) ~= '.lua' then parm = parm..'.lua'  end
     local fname = exists(parm)
     if not fname then
         if not lake.is_remote(parm) then  quit(parm..' not found!')
@@ -1769,15 +1767,13 @@ function lake.install_plugin (parm)
     end
     local name = path.basename(fname)
     local package,kind = name:match '([^.]+)%.(.+)%.'
-    if not package or not (kind == 'need' or kind == 'lang' or kind == 'lake') then
-        quit('no NAME.need,.lang or .lake file found ')
+    if not package then
+        quit('no NAME.KIND.lua file found ')
     end
     if kind=='need' then
         sub = '/lake/needs/'
-    elseif kind=='lang' then
-        sub = '/lake/lang/'
     else
-        sub = '/lake/'
+        sub = '/lake/'..kind..'/'
     end
     local dest = lake.home..sub..package..'.lua'
     -- convention is that plugins use quit() if they cannot load...
@@ -1807,7 +1803,7 @@ end
 
 local synth_target,synth_args_index
 
- function update_pwd ()
+function update_pwd ()
     local dir = lfs.currentdir()
     if Windows then dir = dir:lower() end -- canonical form
     PWD = dir..DIRSEP
@@ -1871,7 +1867,6 @@ local function set_platform()
         PLAT = BUILD_PLAT
     end
     WINDOWS = PLAT=='Windows'
-    --print(BUILD_PLAT,PLAT,WINDOWS)
     if WINDOWS then
         EXE_EXT = '.exe'
         DLL_EXT = '.dll'
@@ -1888,10 +1883,18 @@ local function process_args()
     local write_needs
     LUA_EXE = quote_if_necessary(arg[-1] or 'lua') -- srlua does not pass this!
     STRICT = true
+    -- @doc [config] the environment variable LAKE_PARMS can be used to supply default global values,
+    -- in the same <var>=<value> form as on the command-line; pairs are separated by semicolons.
+    local parms = env 'LAKE_PARMS'
+    if parms then
+        for pair in list_(split(parms,';')) do
+            process_var_pair(pair)
+        end
+    end
     -- @doc [config] try load ~/.lake/config.lua, then ./lakeconfig.lua.
     -- We also put ~./lake on the package path for Lake-specific
     -- plugins.  If the global LAKE_CONFIG_FILE is set, then we'll also try load that.
-    local home = expanduser '~/.lake'
+    local home = path.expanduser '~/.lake'
     lake.home = home
     package.path = home..'/?.lua;'..package.path
     local lconfig = exists_lua(join(home,'config'))
@@ -1909,26 +1912,25 @@ local function process_args()
     end
     update_pwd()
 
-    -- @doc [config] the environment variable LAKE_PARMS can be used to supply default global values,
-    -- in the same <var>=<value> form as on the command-line; pairs are separated by semicolons.
-    local parms = env 'LAKE_PARMS'
-    if parms then
-        for pair in list_(split(parms,';')) do
-            process_var_pair(pair)
-        end
-    end
     local no_synth_target, run_file, run_rule
     local use_lakefile = true
     local i = 1
     while i <= #arg do
         local a = arg[i]
-        local function getarg() local res = arg[i+1]; i = i + 1; return res end
+        local function getarg()
+            local res = arg[i+1]
+            if res == nil or res:match '^%-' then quit("parameter '%s' was expecting a value",a) end
+            i = i + 1
+            return res
+        end
         if process_var_pair(a) then
             -- @doc <name>=<val> pairs on command line for setting globals
         elseif a:sub(1,1) == '-' then
             local opt = a:sub(2)
             if opt == 'v' then
                 verbose = true
+            elseif opt == 'q' then
+                lake.set_log()
             elseif opt == 'h' or opt == '-help' then
                 print(usage)
                 os.exit(0)
@@ -1943,6 +1945,8 @@ local function process_args()
                 no_synth_target = true
             elseif opt == 'f' then
                 lakefile = getarg()
+            elseif opt == 'L' then
+                require('lake.'..getarg())
             elseif opt == 'e' then
                 lakefile = file.temp_copy(getarg())
             elseif opt == 's' then
@@ -1973,8 +1977,12 @@ local function process_args()
             if lake.is_remote(a) then a = lake.download(a) or '?' end
             if not no_synth_target and a:find('%.') and exists(a) then
                 -- Lua scripts are run directly, unless specifically switched off with '-n'
-                if extension_of(a) == '.lua' then
+                local ext = extension_of(a)
+                if ext == '.lua' then
                     run_file = a
+                    break
+                elseif ext == '.lake' then
+                    lakefile = a
                     break
                 else  --  see if we have a suitable rule for processing  a file with this extension.
                     local _,_,rule = lake.deduce_tool(a,true)
@@ -2028,9 +2036,6 @@ local function process_args()
             if not lakefile then
                 quit("'%s' does not exist",orig_lakefile or 'lakefile')
             end
-            specfile = lakefile..'.spec'
-            specfile = io.open(specfile,'r')
-            outspec = io.open(TMPSPEC,'w')
             safe_dofile(lakefile)
         end
         if next(unsatisfied_needs) then
@@ -2062,15 +2067,6 @@ function lake.on_exit (hook)
 end
 
 function finalize(reason)
-    if specfile then pcall(specfile.close,specfile) end
-    if outspec then
-        local stat,err = pcall(outspec.close,outspec)
-        if stat then
-            file.copy(TMPSPEC,lakefile..'.spec')
-        else
-            log('unable to recreate spec file: '..err)
-        end
-    end
     for _,h in ipairs(hooks) do
         pcall(h,reason)
     end
@@ -2087,8 +2083,6 @@ utils.make_callable(lake,lake_)
 function lake.go()
 
     if #all_targets_list == 0 then
-        specfile = nil
-        outspec = nil
         quit('no targets defined')
     end
 
@@ -2130,11 +2124,12 @@ function lake.go()
     end
     -- if requested, generate a default clean target, using all the targets.
     if synthesize_clean then
+        NODEPS = true
         local t = new_target('clean',nil,function()
             utils.remove(ALL_TARGETS)
             -- Object files may have associated .d dependency file
             for t in list_(ALL_TARGETS) do
-                if extension_of(t) == baselang.obj_ext then
+                if type(t) == 'string' and extension_of(t) == baselang.obj_ext then
                     local dfile = replace_extension(t,'.d')
                     if exists(dfile) then utils.remove(dfile,true) end
                 end
@@ -2217,32 +2212,6 @@ local function opt_flag (flag,opt)
     end
 end
 
--- -@doc [GLOBALS]
-local known_globals = {
-    --These can be set on the command-line (like make) and in the environment variable LAKE_PARMS
-    CC=true, -- the C compiler (gcc unless cl is available)
-    CXX=true, -- the C++ compiler (g++ unless cl is available)
-    FC=true, -- the Fortran compiler (gfortran)
-    OPTIMIZE=true, -- (O2)
-    STRICT=true, -- strict compile (also -s command-line flag)
-    DEBUG=true, -- debug build (also -g command-line flag)
-    PREFIX=true, -- (empty string). e.g. PREFIX=arm-linux makes CC become arm-linux-gcc etc
-    LUA_INCLUDE_DIR=true,
-    LUA_LIB_DIR=true, -- (usually deduced from environment)
-    WINDOWS=true, -- true for Windows builds
-    PWD=true, -- current working directory
-    BUILD_PLAT=true, -- build platform deduced from uname if not windows, 'Windows' otherwise
-    PLAT=true, -- actual target platform, usually the same as BUILD_PLAT
-    MSVC=true, -- true if we're using cl.exe
-    EXE_EXT=true, --  extension of programs on this platform
-    DLL_EXT=true, -- extension of shared libraries on this platform
-    LOCAL_EXEC=true, -- how to execute local programs (is ./ on Unix)
-    DIRSEP=true, -- directory separator on this platform
-    COMBINE=true, -- allow the compiler to compile multiple files at once (if it is capable)
-    NODEPS=true, -- don't do automatic dependency generation
-    REMOTE_LAKE_URL=true --(http://stevedonovan.github.com/files) Default download location for 'get:'
-}
-
 function lake.set_flags(parms)
     if not parms then
         if not flags_set then flags_set = true else return end
@@ -2265,7 +2234,6 @@ function lake.set_flags(parms)
             end
             CC = PREFIX..'gcc'
             CXX = PREFIX..'g++'
-            FC = PREFIX..'gfortran'
         else
             PREFIX = ''
             CC = CC or 'gcc'
@@ -2273,7 +2241,6 @@ function lake.set_flags(parms)
     end
     if not CXX and CC == 'gcc' then
         CXX = 'g++'
-        FC = 'gfortran'
     end
     if not OPTIMIZE then
         OPTIMIZE = 'O2'
@@ -2339,8 +2306,6 @@ function lake.set_flags(parms)
         c99.compile_combine = '$(CC) -std=c99 -c $(CFLAGS)  $(INPUT)'
         c.link = '$(CC) $(DEPENDS) $(LIBS) -o $(TARGET)'
         c99.link = c.link
-        f.compile = '$(FC) -c $(CFLAGS)  $(INPUT)'
-        flink = '$(FC) $(DEPENDS) $(LIBS) -o $(TARGET)'
         cpp.compile = '$(CXX) -c $(CFLAGS)  $(INPUT) -o $(TARGET)'
         cpp.compile_combine = '$(CXX) -c $(CFLAGS)  $(INPUT)'
         cpp.link = '$(CXX) $(DEPENDS) $(LIBS) -o $(TARGET)'
@@ -2350,6 +2315,7 @@ function lake.set_flags(parms)
         baselang.LIBDIR = '-L'
         baselang.incdir = '-I'
         baselang.DEFDEF = '-D'
+        baselang.M32 = '-m32'
         if PLAT=='Darwin' then
             c.LINK_DLL = ' -dynamiclib -undefined dynamic_lookup'
         else
@@ -2374,7 +2340,7 @@ function lake.set_flags(parms)
             if t.ptype ~= 'dll' then return deps end
             local def = exists(name..'.def') or t.args.def
             if def and PLAT=='Windows' then
-                deps = copy_list(deps)
+                deps = list.copy(deps)
                 append(deps,def)
             end
             return deps
@@ -2453,7 +2419,7 @@ function lake.set_flags(parms)
                     end
                     if mname then
                         mname = mname:gsub('%.','_')
-                        append(deps,' /EXPORT:luaopen_'..mname)
+                        append(deps,'/EXPORT:luaopen_'..mname)
                     end
                 end
             end
@@ -2540,7 +2506,7 @@ end
 
 function lake.output_filter (lang,filter)
     local old_filter = lang.filter
-    lang.filter = function(line,action)
+    local filter = function(line,action)
         if not action then
             if old_filter then line = old_filter(line) end
             if line then return filter(line) end
@@ -2548,10 +2514,16 @@ function lake.output_filter (lang,filter)
             if old_filter then old_filter(line,action) end
         end
     end
+    if istarget(lang) then
+        if not lang.rule then lang.rule = {} end
+        lang.rule.filter = filter
+    else
+        lang.filter = filter
+    end
 end
 
 function concat_arg(pre,arg,sep,base)
-    return ' '..concat_list(deps_arg(arg,base),pre,sep)
+    return ' '..list.concat(deps_arg(arg,base),pre,sep)
 end
 lake.concat_arg = concat_arg
 
@@ -2635,7 +2607,7 @@ local function get_extra_needs (name,args,static)
 end
 
 local function examine_config_vars(package,subtype)
-    -- @doc [needs] If we're trying to match a need 'frodo', then we
+    -- @needs If we're trying to match a need 'frodo', then we
     -- generate FRODO_INCLUDE_DIR, FRODO_LIB_DIR, FRODO_LIBS, FRODO_DIR
     -- and look them up globally.  Not all of these are needed. For instance, if only
     -- FRODO_DIR is specified then Lake will try FRODO_DIR/include and FRODO_DIR/lib,
@@ -2643,6 +2615,8 @@ local function examine_config_vars(package,subtype)
     -- On Unix, a C/C++ need generally needs include and lib dirs, plus library name if
     -- it isn't identical to the need name. However a lib dir is only essential for Windows,
     -- which has no convenient system-wide lib directory.
+    --
+    -- A need may insist on a certain language using FRODO_LANG
     --
     -- You may also directly define FRODO_CFLAGS and FRODO_LFLAGS to provide
     -- arbitrary compile/link flags; in this case the directory checks are skipped
@@ -2657,9 +2631,10 @@ local function examine_config_vars(package,subtype)
     local dir_v = upack..'_DIR'
     local cflags_v = upack..'_CFLAGS'
     local lflags_v = upack..'_LFLAGS'
+    local lang_v = upack..'_LANG'
 
-    local incdir,libdir,libs,libss,dir,cflags,lflags =
-        _G[incdir_v],_G[libdir_v],_G[libs_v],_G[libss_v],_G[dir_v],_G[cflags_v],_G[lflags_v]
+    local incdir,libdir,libs,libss,dir,cflags,lflags,lang =
+        _G[incdir_v],_G[libdir_v],_G[libs_v],_G[libss_v],_G[dir_v],_G[cflags_v],_G[lflags_v],_G[lang_v]
 
     local function checkdir(val,var,default)
         local none = val == nil
@@ -2700,7 +2675,8 @@ local function examine_config_vars(package,subtype)
             libs = concat_arg('',libs,'_static ')
         end
     end
-    local res = {incdir = incdir, libdir = libdir, libs = libs, flags = cflags, libflags = lflags}
+    local res = {incdir = incdir, libdir = libdir, libs = libs, flags = cflags,
+        libflags = lflags, lang = lang}
     if not next(res) then -- we found nuffink...
         res = nil
     end
@@ -2811,6 +2787,8 @@ local function update_needs(ptype,args)
                 append_to_field(args,'libdir',res.libdir)
                 if res.libflags then args.libflags = concat_str(args.libflags,res.libflags,true) end
                 if res.flags then args.flags = concat_str(args.flags,res.flags,true) end
+                -- @needs a need may override the default language, e.g insist on C99
+                if res.lang then args.lang = res.lang end
             end
         else
             if PLAT ~= 'Windows' then
@@ -2888,15 +2866,15 @@ function update_lua_flags (args,static)
             if not LUA_INCLUDE_DIR then quit ("cannot find Lua include directory") end
             LUA_LIB_DIR = exists(path,'lib') or exists(path,'..\\lib')
             if not LUA_INCLUDE_DIR or not LUA_LIB_DIR then
-                quit("cannot find Lua include and/or library files\nSpecify LUA_INCLUDE and LUA_LIBDIR")
+                quit("cannot find Lua include and/or library files\nSpecify LUA_INCLUDE_DIR and LUA_LIB_DIR")
             end
         else
             -- 'canonical' Lua install puts headers in sensible place
             if not find_include 'lua.h' then
-                -- except for Debian, which also supports 5.0
+                -- except for Debian, which also supports 5.0 and 5.2
                 LUA_INCLUDE_DIR = find_include (LUA_LIBS..'/lua.h')
                 if not LUA_INCLUDE_DIR then
-                    quit ("cannot find Lua include files\nSpecify LUA_INCLUDE")
+                    quit ("cannot find Lua include files\nSpecify LUA_INCLUDE_DIR")
                 end
                 LUA_INCLUDE_DIR = splitpath(LUA_INCLUDE_DIR)
                 -- generally no need to link explicitly against Lua shared library
@@ -2968,6 +2946,7 @@ local program_fields = {
     base=true, -- base directory for source and includes
     precompiled_header=true, -- provide a header to be precompiled and used
     llua=true, -- name of Lua module being built
+    m32=true, -- 32-bit build on 64-bit platform
     ---- OS X support
     framework=true, -- link against framework (-framework flag)
     framework_dir=true, -- provide framework path (-F flag)
@@ -2977,7 +2956,7 @@ local program_fields = {
 
 function lake.add_program_option(options)
     options = deps_arg(options)
-    table.update(program_fields,table.set(options))
+    utils.append_table(program_fields,utils.set(options))
 end
 
 function check_options (args,fields,where)
@@ -3006,6 +2985,22 @@ local function _program(ptype,name,deps,lang)
     if type(name) == 'table' then
         args = name
         check_options(args,program_fields,'program')
+        -- @needs specifying libraries etc by 'needs', not explicitly
+        if args.needs or NEEDS then
+            -- @needs extra needs for all compile targets can be set with the NEEDS global.
+            append_to_field(args,'needs',NEEDS)
+            -- @lang a language may take over needs processing by defining process_needs()
+            if lang.process_needs then
+                lang.process_needs(ptype,args)
+            else
+                update_needs(ptype,args)
+            end
+        end
+        -- @lang @needs default language can be overriden, explicitly or through a need
+        if args.lang then
+            lang = _G[args.lang]
+            if lang == nil then quit("unknown language: "..args.lang) end
+        end
         --- how default values can be set
         append_table(args,lang.defaults,true)
         append_table(args,args.args,true)
@@ -3039,20 +3034,14 @@ local function _program(ptype,name,deps,lang)
         if args.shared or args.dll then ptype = 'dll' end
         src = args.src
         except = args.exclude
-        concat_if_table(args,'libflags')
         args.flags = args.flags or args.cflags
-        concat_if_table(args,'flags')
-        -- @needs specifying libraries etc by 'needs', not explicitly
-        if args.needs or NEEDS then
-            -- @needs extra needs for all compile targets can be set with the NEEDS global.
-            append_to_field(args,'needs',NEEDS)
-            -- @lang a language may take over needs processing by defining process_needs()
-            if lang.process_needs then
-                lang.process_needs(ptype,args)
-            else
-                update_needs(ptype,args)
-            end
+        if args.m32 or M32 then
+            if not lang.M32 then quit("no support for separate 32-bit compilation with this compiler") end
+            append_to_field(args,'flags',lang.M32)
+            append_to_field(args,'libflags',lang.M32)
         end
+        concat_if_table(args,'flags')
+        concat_if_table(args,'libflags')
         if args.libdir then
             libs = libs..concat_arg(baselang.LIBDIR,args.libdir,' ')
         end
@@ -3260,6 +3249,8 @@ local function _program(ptype,name,deps,lang)
     if src then
         local ext = args.ext or lang.ext
         local root
+        -- hack: ext is '*' in a rule means that the output extension equals the input extension
+        if ext == '*' then ext = '' end
         if args.recurse then
             local first = type(src) == 'table' and src[1] or src
             root = dirname(first,true)
@@ -3267,7 +3258,7 @@ local function _program(ptype,name,deps,lang)
         src = expand_args(src,ext,args.recurse,args.base)
         if except then
             except = expand_args(except,ext,false,args.base)  -- args.recurse?
-            erase_list(src,except)
+            list.erase(src,except)
         end
         -- all these compile targets can depend on a precompiled header...
         if pcr then pcr = pcr:get_targets() end
@@ -3308,7 +3299,6 @@ for lang in list_ {c,c99,cpp,cpp11,s} do
     lake.add_group(lang)
 end
 
-lake.add_prog(f)
 lake.add_group(wresource)
 lake.add_group(file)
 
@@ -3387,6 +3377,27 @@ setmetatable(ENV,{
 })
 
 IF = choose
+
+local function L_impl(t)
+    if type(t) ~= 'table' then
+        return lake.deps_arg(t)
+    end
+    local res,indices = {},{}
+    for k,v in pairs(t) do
+        if type(k) ~= 'number' then -- just copy string keys
+            res[k] = v
+        else
+            append(indices,k)
+        end
+    end
+    table.sort(indices) -- voila, hole free array!
+    for _,k in ipairs(indices) do
+        list.extend(res,L_impl(t[k]))
+    end
+    return res
+end
+
+L = L_impl
 
 function lake.compiler_version (cc)
     local text,major, minor, rev
