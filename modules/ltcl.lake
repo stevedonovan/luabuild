@@ -1,5 +1,6 @@
 if not find.include_path 'tcl.h' then
-    incs = find.include_path {'tcl8.4/tcl.h','tcl8.5/tcl.h'}
+    -- Debian/Ubuntu locations
+    incs = find.include_path {'tcl8.4/tcl.h','tcl8.5/tcl.h','tcl8.6/tcl.h'}
     if not incs then
         quit "ltcltk: you have to install tcl/tk development files"
     end
@@ -12,4 +13,4 @@ end
 luabuild.lua 'ltk'
 luabuild.test 'samples/ltcltest.lua'
 
-return luabuild.library {'ltcl',src='ltcl',libs = libs,incdir={LUADIR,incs}}
+return luabuild.library {'ltcl',src='ltcl',libs = libs,incdir={LUADIR,incs},defines='USE_INTERP_RESULT'}
