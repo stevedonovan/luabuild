@@ -108,12 +108,12 @@
 		LUA_CDIR"?.dll;" LUA_CDIR"loadall.dll;" ".\\?.dll"
 
 #else			/* }{ */
+#define LUA_VDIR	LUA_VERSION_MAJOR "." LUA_VERSION_MINOR "/"
 
 #if defined LUA_CUSTOM_DIR
 #define LUA_LDIR XSTR_(LUA_CUSTOM_DIR) "lua/"
-#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib/"
+#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib/" LUA_VDIR
 #else
-#define LUA_VDIR	LUA_VERSION_MAJOR "." LUA_VERSION_MINOR "/"
 #define LUA_ROOT	"/usr/local/"
 #define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR
 #define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR

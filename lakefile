@@ -13,6 +13,9 @@ local append,join,exists = table.insert,path.join,path.exists
 local lua52 = _VERSION:match '5.2'
 local quote = path.quote
 
+SRC_DIR = "lua-5.2.2"
+VERSION = "5.2"
+
 local load_config
 local function load_config (src, env, dont_quit)
     local str,err = file.read(src)
@@ -77,10 +80,9 @@ local function write_config_file (name,tbl)
     f:close()
 end
 
-VERSION = "5.2"
-SRC = 'lua-5.2.2'..DIRSEP
+SRC = SRC_DIR..DIRSEP
 PWD = lfs.currentdir()..DIRSEP
-LIBDIR = PWD..'lib'..DIRSEP
+LIBDIR = PWD..'lib'..DIRSEP..VERSION..DIRSEP
 BINDIR = PWD..'bin'..DIRSEP
 MODDIR = PWD..'lua'..DIRSEP
 LUADIR = PWD..SRC

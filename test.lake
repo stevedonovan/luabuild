@@ -7,6 +7,9 @@ if not f then quit(err) end
 local EXE = path.abs(path.join('bin',name))
 if WINDOWS then
     EXE = EXE .. '.exe'
+    REMOVE = 'del'
+else
+    REMOVE = 'rm'
 end
 
 local tests = {}
