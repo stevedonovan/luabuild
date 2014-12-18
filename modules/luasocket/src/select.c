@@ -40,7 +40,7 @@ int select_open(lua_State *L) {
     lua_pushstring(L, "_SETSIZE");
     lua_pushnumber(L, FD_SETSIZE);
     lua_rawset(L, -3);
-    luaL_openlib(L, NULL, func, 0);
+    luaL_setfuncs(L,func,0);
     return 0;
 }
 

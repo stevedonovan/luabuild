@@ -68,11 +68,12 @@ int inet_open(lua_State *L)
 {
     lua_pushstring(L, "dns");
     lua_newtable(L);
-    luaL_openlib(L, NULL, dns, 0);
+    luaL_setfuncs(L,dns,0);
     lua_settable(L, -3);
 
     /* Export as global functions */
-    luaL_openlib(L, NULL, func, 0);
+    luaL_setfuncs(L,func,0);
+
     return 0;
 }
 

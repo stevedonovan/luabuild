@@ -26,7 +26,7 @@
 /*
 ** compatibility with Lua 5.2
 */
-#if (LUA_VERSION_NUM == 502)
+#if (LUA_VERSION_NUM > 501)
 
 #undef lua_equal
 #define lua_equal(L,idx1,idx2)  lua_compare(L,(idx1),(idx2),LUA_OPEQ)
@@ -42,6 +42,11 @@
 #undef luaL_register
 #define luaL_register(L,n,f) \
 	{ if ((n) == NULL) luaL_setfuncs(L,f,0); else luaL_newlib(L,f); }
+    
+#if LUA_VERSION_NUM > 502
+#define luaL_checkint(L,n) (int)luaL_checkinteger(L,n)
+#define luaL_optint(L,n,d) (int)luaL_optinteger(L,n,d)
+#endif
 
 #endif
 

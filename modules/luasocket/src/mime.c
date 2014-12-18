@@ -81,7 +81,9 @@ static UC b64unbase[256];
 \*-------------------------------------------------------------------------*/
 MIME_API int luaopen_mime_core(lua_State *L)
 {
-    luaL_openlib(L, "mime", func, 0);
+    lua_newtable(L);
+    luaL_setfuncs(L,func,0);
+    //luaL_openlib(L, "mime", func, 0);
     /* make version string available to scripts */
     lua_pushstring(L, "_VERSION");
     lua_pushstring(L, MIME_VERSION);
@@ -656,7 +658,7 @@ static int eolprocess(int c, int last, const char *marker,
 \*-------------------------------------------------------------------------*/
 static int mime_global_eol(lua_State *L)
 {
-    int ctx = luaL_checkint(L, 1);
+    int ctx = luaL_checkinteger(L, 1);
     size_t isize = 0;
     const char *input = luaL_optlstring(L, 2, NULL, &isize);
     const char *last = input + isize;

@@ -70,7 +70,8 @@ LUASOCKET_API int luaopen_socket_serial(lua_State *L) {
     /* create class groups */
     auxiliar_add2group(L, "serial{client}", "serial{any}");
     /* make sure the function ends up in the package table */
-    luaL_openlib(L, "socket", func, 0);
+    luaL_setfuncs(L,func,0);
+    //luaL_openlib(L, "socket", func, 0);
     /* return the function instead of the 'socket' table */
     lua_pushstring(L, "serial");
     lua_gettable(L, -2);

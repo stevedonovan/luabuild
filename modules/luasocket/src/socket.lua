@@ -10,20 +10,19 @@ local base = _G
 local string = require("string")
 local math = require("math")
 local socket = require("socket.core")
-module("socket")
 
 -----------------------------------------------------------------------------
 -- Exported auxiliar functions
 -----------------------------------------------------------------------------
-function connect4(address, port, laddress, lport)
+function socket.connect4(address, port, laddress, lport)
     return socket.connect(address, port, laddress, lport, "inet")
 end
 
-function connect6(address, port, laddress, lport)
+function socket.connect6(address, port, laddress, lport)
     return socket.connect(address, port, laddress, lport, "inet6")
 end
 
-function bind(host, port, backlog)
+function socket.bind(host, port, backlog)
     if socket._BROKEN_XP and (host == "localhost" or host == "*") then
         sock, err = socket.tcp()
         if not sock then return nil, err end
@@ -62,9 +61,9 @@ function bind(host, port, backlog)
     return nil, err
 end
 
-try = newtry()
+socket.try = socket.newtry()
 
-function choose(table)
+function socket.choose(table)
     return function(name, opt1, opt2)
         if base.type(name) ~= "string" then
             name, opt1, opt2 = "default", name, opt1
@@ -79,10 +78,13 @@ end
 -- Socket sources and sinks, conforming to LTN12
 -----------------------------------------------------------------------------
 -- create namespaces inside LuaSocket namespace
-sourcet = {}
-sinkt = {}
+local sourcet = {}
+local sinkt = {}
 
-BLOCKSIZE = 2048
+socket.sourct = sourcet
+socket.sinkt = sinkt
+
+socket.BLOCKSIZE = 2048
 
 sinkt["close-when-done"] = function(sock)
     return base.setmetatable({
@@ -112,7 +114,7 @@ end
 
 sinkt["default"] = sinkt["keep-open"]
 
-sink = choose(sinkt)
+sink = socket.choose(sinkt)
 
 sourcet["by-length"] = function(sock, length)
     return base.setmetatable({
@@ -152,5 +154,6 @@ end
 
 sourcet["default"] = sourcet["until-closed"]
 
-source = choose(sourcet)
+source = socket.choose(sourcet)
 
+return socket
