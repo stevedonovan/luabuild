@@ -71,6 +71,9 @@
 #define LUA_USE_READLINE	/* needs an extra library: -lreadline */
 #endif
 
+#if defined(LUA_NO_READLINE)
+#undef LUA_USE_READLINE
+#endif
 
 /*
 @@ LUA_C89_NUMBERS ensures that Lua uses the largest types available for
@@ -154,15 +157,22 @@
 ** hierarchy or if you want to install your libraries in
 ** non-conventional directories.
 */
+#define XSTR_(x) STR_(x)
+#define STR_(x) #x
+
 #define LUA_VDIR	LUA_VERSION_MAJOR "." LUA_VERSION_MINOR
 #if defined(_WIN32) 	/* { */
 /*
 ** In Windows, any exclamation mark ('!') in the path is replaced by the
 ** path of the directory of the executable file of the current process.
 */
+#ifndef LUA_CUSTOM_DIR
 #define LUA_LDIR	"!\\lua\\"
 #define LUA_CDIR	"!\\"
-#define LUA_SHRDIR	"!\\..\\share\\lua\\" LUA_VDIR "\\"
+#else
+#define LUA_LDIR XSTR_(LUA_CUSTOM_DIR) "lua\\"
+#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib\\"
+#endif
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?\\init.lua;" \
 		LUA_CDIR"?.lua;"  LUA_CDIR"?\\init.lua;" \
@@ -175,9 +185,14 @@
 
 #else			/* }{ */
 
+#if defined LUA_CUSTOM_DIR
+#define LUA_LDIR XSTR_(LUA_CUSTOM_DIR) "lua/"
+#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib/" LUA_VDIR "/"
+#else
 #define LUA_ROOT	"/usr/local/"
-#define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR "/"
-#define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR "/"
+#define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR
+#define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR
+#endif
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
 		LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua;" \

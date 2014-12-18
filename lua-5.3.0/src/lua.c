@@ -73,10 +73,9 @@
 ** lua_saveline defines how to "save" a read line in a "history".
 ** lua_freeline defines how to free a line read by lua_readline.
 */
-#if !defined(lua_readline)	/* { */
+#if defined(LUA_USE_READLINE)
 
-#if defined(LUA_USE_READLINE)	/* { */
-
+#include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
@@ -85,7 +84,18 @@
           add_history(lua_tostring(L, idx));  /* add it to history */
 #define lua_freeline(L,b)	((void)L, free(b))
 
-#else				/* }{ */
+#elif defined(LUA_USE_LINENOISE)
+
+#include <stdio.h>
+#include <linenoise.h>
+
+#define lua_readline(L,b,p)     ((void)L, ((b)=linenoise(p)) != NULL)
+#define lua_saveline(L,idx) \
+        if (lua_rawlen(L,idx) > 0)  /* non-empty line? */ \
+          linenoiseHistoryAdd(lua_tostring(L, idx));  /* add it to history */
+#define lua_freeline(L,b)       ((void)L, free(b))
+
+#elif !defined(lua_readline)
 
 #define lua_readline(L,b,p) \
         ((void)L, fputs(p, stdout), fflush(stdout),  /* show prompt */ \
@@ -93,10 +103,7 @@
 #define lua_saveline(L,idx)	{ (void)L; (void)idx; }
 #define lua_freeline(L,b)	{ (void)L; (void)b; }
 
-#endif				/* } */
-
-#endif				/* } */
-
+#endif
 
 
 
