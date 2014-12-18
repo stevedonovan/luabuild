@@ -10,11 +10,20 @@
 -- will statically link in LuaFileSystem and exclude the standard debug module.
 local lfs = require 'lfs'
 local append,join,exists = table.insert,path.join,path.exists
-local lua52 = _VERSION:match '5.2'
+-- for our purposes, the distinction is between Lua 5.1 and 5.2, 5.3
+local lua52 = not _VERSION:match '5.1'
 local quote = path.quote
+local build53 = LUA53 ~= nil
+print ('LUA53',LUA53)
 
-SRC_DIR = "lua-5.2.2"
-VERSION = "5.2"
+if not build53 then
+    SRC_DIR = "lua-5.2.2"
+    VERSION = "5.2"
+else
+    print 'building Lua 5.3.0'
+    SRC_DIR = "lua-5.3.0/src"
+    VERSION = "5.3"
+end
 
 local load_config
 local function load_config (src, env, dont_quit)
@@ -51,7 +60,7 @@ local function split (str)
     end
 end
 
-local function global_name (s) return s:match '^[%u_]+$'  ~= nil end
+local function global_name (s) return s:match '^[%u%d_]+$'  ~= nil end
 
 local function read_config_file (name,dont_quit)
     -- global _variables_ may be read in configuration files
@@ -96,6 +105,11 @@ LDO = 'ldo'
 LIB = [[ lauxlib lbaselib lbitlib lcorolib ldblib liolib
 	lmathlib loslib lstrlib ltablib linit
 ]]
+
+if build53 then
+    LIB = LIB..' lutf8lib'
+end
+
 LOADLIB = 'loadlib'
 
 -- the standard Lua modules and their implementation files
@@ -110,6 +124,11 @@ LIBNAMES = {
     table = 'ltablib',
     debug = 'ldblib',
 }
+
+if build53 then
+    LIBNAMES.utf8 = 'lutf8lib'
+    LIBNAMES.bit32 = nil
+end
 
 -- read the manifest of available static modules and the configuration file
 local menv = {}
@@ -141,7 +160,6 @@ if next(globs) then lake.set_flags(globs) end
 
 -- what modules must we include or exclude?
 local mods = split(config.include)
---for k,v in pairs(mods) do print('['..k..']','['..v..']') end
 local ex = split(config.exclude)
 
 for mod in list(mods) do
@@ -424,7 +442,11 @@ end
 if config.readline == 'linenoise' and not WINDOWS then
     local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
-    incdir = (incdir or '')..' ../linenoise'
+    local noisedir = '../linenoise'
+    if build53 then
+        noisedir = '../'..noisedir
+    end
+    incdir = (incdir or '')..' '..noisedir
 end
 
 local prog,llua = c.program{BINDIR..name,

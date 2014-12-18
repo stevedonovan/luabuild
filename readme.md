@@ -64,7 +64,7 @@ A more complete example is for the `socket.core` module of luasocket:
 
 Note how any pure Lua components can be copied as well; these go into the `lua` directory, and will be on the module path for the default `lua52` executable.
 
-The global `luabuild` provides the means to add a test file. It became clear that Luabuild needed to do more than statically link an appropriate executable; without the means to easily test the result. And it was going to be necessary to also provide the traditional shared library versions of these modules and put them in a convenient place.  Since some of these modules have a Lua part as well, these needed to be copied onto the module path as well. In this way, Luabuild has moved from a quick hack to being a small, flexible, source-based Lua 5.2 distribution. This was not my original intention, since there is already [two] big source-based distributions. But their bigness means that it will take a while for them to become Lua 5.2 compatible. It seems that the [Luadist](https://github.com/LuaDist) project understands that provision for static linking provides the means to customize the Lua executable, see [this comment](https://github.com/LuaDist/Repository/issues/80) by David Manura. It's possible because that project uses another high-level build platform, CMake.
+The global `luabuild` provides the means to add a test file. It became clear that Luabuild needed to do more than statically link an appropriate executable; without the means to easily test the result. And it was going to be necessary to also provide the traditional shared library versions of these modules and put them in a convenient place.  Since some of these modules have a Lua part as well, these needed to be copied onto the module path as well. In this way, Luabuild has moved from a quick hack to being a small, flexible, source-based Lua 5.2 distribution. This was not my original intention, since there is already two big source-based distributions.  It seems that the [Luadist](https://github.com/LuaDist) project understands that provision for static linking provides the means to customize the Lua executable, see [this comment](https://github.com/LuaDist/Repository/issues/80) by David Manura. It's possible because that project uses another high-level build platform, CMake.
 
 ## Using luabuild
 
@@ -210,4 +210,50 @@ Lua is famous for the small size of its core, and so it isn't surprising that mo
 
 Another motivation for luabuild was to give `lake` a good solid exercise, and it has proved to be a flexible way to organize tricky builds. In particular, being able to partition the building of particular targets into groups makes it straightforward to customize the compilation of individual files.  For example, building the Lua static library was easier because `loadlib.c` could be done as a special case; it turns out that gcc 4.6's default optimization causes trouble with the `longjmp` error mechansion in `ldo.c`, at least on Windows for static builds - it was straightforward to treat this as a separate case that would not use the 'omit frame pointer' optimization.
 
+<notes>
+
+Tried to get rid of strfptime proto-not-found but _XOPEN_SOURCE messes us up badly.  I note that 'config.h' ended up in the *lua* source folder! Mishtake!
+
+-On a Debian/Ubuntu machine, building:
+ - sqlite3  - libsqlite3-dev
+  - lua-expat -> libexpat-dev
+  - ltcl -> tcl8.6-dev  (or 8.4, 8.5)
+  - curses - libncurses-dev
+  
+  (minor lakefile tweak needed for tcl8.6, examples appear to still work)
+  
+  Set EXTRAS=1 ??
+
+Should also possible to build LuaSQL for MySQL and Postgres if desired!
+
+-luasignal folder no longer needed
+
+-Lua 5.3 support
+  - libs/5.2 and libs/5.3, since versions are not compatible
+  - struct isn't necessary for 5.3
+
+- gotchas to be documented
+   - lhf's bc is GPL because it uses GPL code. So beware static linking!
+   
+- support for lgi demos
+
+need these typelibs:
+
+gir1.2-gtksource-3.0
+gir1.2-clutter-1.0
+
+would go into ldeb1.1-all-gi.deb
+
+(ldeb1.1-all.deb has the other Lua extensions as dependencies)
+
+(so ldeb needs to be able to add external dependencies)
+
+OK!
+   - /lib/5.2
+   - up to Lua 5.2.3
+   - no soar, just soar52
+   - test packing a few exes
+   
+Then can add Lua 5.3.0
+& test on Windows (mingw and CL)
 
