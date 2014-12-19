@@ -1,6 +1,6 @@
 local socket = require"socket"
 
-host = host or "localhost"
+host = host or "127.0.0.1"
 port = port or "8443"
 
 math.mod = math.mod or function(x,y) return x % y end

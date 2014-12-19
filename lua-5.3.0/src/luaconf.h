@@ -171,7 +171,8 @@
 #define LUA_CDIR	"!\\"
 #else
 #define LUA_LDIR XSTR_(LUA_CUSTOM_DIR) "lua\\"
-#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib\\"
+#define LUA_CDIR XSTR_(LUA_CUSTOM_DIR) "lib\\" LUA_VDIR "\\"
+#define LUA_SHRDIR	"!\\..\\share\\lua\\" LUA_VDIR "\\"
 #endif
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?\\init.lua;" \

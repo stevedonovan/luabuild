@@ -1,5 +1,5 @@
 socket = require("socket")
-host = host or "localhost"
+host = host or "127.0.0.1"
 port = port or "8443"
 server = assert(socket.bind(host, port))
 loadstring = loadstring or load -- Lua 5.2 compat
