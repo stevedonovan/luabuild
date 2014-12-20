@@ -43,7 +43,7 @@ Lake version 1.4  A Lua-based Build Engine
 local lfs = require 'lfs'
 local append = table.insert
 local env = os.getenv
-local unpack = unpack
+local unpack = unpack or table.unpack
 local log = print
 local attributes = lfs.attributes
 local verbose = false
