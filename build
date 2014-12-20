@@ -1,13 +1,12 @@
-#!/bin/bash
+#!/bin/sh
 LUA="lua"
 CC="gcc"
 
 while [ $# -gt 0 ]
 do
     case "$1" in
-        (5.3) LUA53=1;;
         (*=*) eval $1;;
-        -h|--help)  echo "optionally LUA=lua,  PLAT=plat, CC=cc"; exit;;
+        -h|--help)  echo "optionally LUA=lua,  PLAT=plat, CC=cc, LUA53=1"; exit;;
     esac
     shift
 done
@@ -74,7 +73,7 @@ CMD="env $LUA lake $CC $LUAVS"
 echo $CMD
 if $CMD
 then
-    env $LUA lake install.lua
+    env $LUA lake install.lua $LUA53
 fi
 
  

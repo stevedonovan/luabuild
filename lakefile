@@ -6,7 +6,7 @@
 -- you may exclude standard Lua modules as well.
 -- For instance, a static.modules file like this
 -- include = 'lfs'
--- exclude = 'debug
+-- exclude = 'debug'
 -- will statically link in LuaFileSystem and exclude the standard debug module.
 local lfs = require 'lfs'
 local append,join,exists = table.insert,path.join,path.exists
@@ -14,7 +14,6 @@ local append,join,exists = table.insert,path.join,path.exists
 local lua52 = not _VERSION:match '5.1'
 local quote = path.quote
 local build53 = LUA53 ~= nil
-print ('LUA53',LUA53)
 
 if not build53 then
     SRC_DIR = "lua-5.2.2"

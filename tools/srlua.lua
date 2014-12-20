@@ -5,6 +5,7 @@ srlua: [options] scriptname
     -o outputname (an .exe will be appended for Windows)
     --modules,-m modlist
         Explicit list of modules; otherwise we read soar.out
+    --lua, -l Lua executable (e.g. -l lua53)
 ]]
 
 local loadstring, append = loadstring or load, table.insert
@@ -41,7 +42,8 @@ local function execute(cmd)
     return utils.execute(cmd)
 end
 
-local scriptname, outfile, binmods
+local scriptname, outfile, binmods,L53
+local lua = os.getenv 'LUA53' and 'lua53' or 'lua52'
 local i = 1
 while i <= #arg do
     local a = arg[i]
@@ -51,10 +53,19 @@ while i <= #arg do
     elseif a == '-m' or a == '--modules' then
         i = i + 1
         binmods = utils.split(arg[i])
+    elseif a == '-l' or a == '--lua' then
+        i = i + 1
+        lua = arg[i]
     else
         scriptname = a
     end
     i = i + 1
+end
+
+if lua == 'lua53' then
+    L53 = 'LUA53=1'
+else
+    L53 = ''
 end
 
 if not scriptname then quit(usage) end
@@ -84,7 +95,7 @@ table.sort(binmods)
 -- this defines the canonical name for srlua executables
 -- if there were no bin modules, then we'll just use the static executable
 local were_mods = #binmods > 0
-local canon = 'lua-'..table.concat(were_mods and binmods or {'static'},'-')
+local canon = lua..'-'..table.concat(were_mods and binmods or {'static'},'-')
 
 local uses_linenoise = list.index(binmods,'linenoise')
 
@@ -102,7 +113,7 @@ if not path.exists(fullpath) then
     end
     f:write('srlua = "',canon,'"\n')
     f:close()
-    local cmd = 'lua '..lb_path'lake'..' -d '..lb_dir..' CONFIG='..canon..'.config'
+    local cmd = lua..' '..lb_path'lake'..' -d '..lb_dir..' CONFIG='..canon..'.config '..L53
     if not execute(cmd) then quit '----we had a problem----' end
 end
 

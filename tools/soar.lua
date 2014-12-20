@@ -204,9 +204,15 @@ end
 -- Instead, just list things we do know about as of 2012.
 local standalone_package_loaded = set{"string", "debug", "package", "_G",
                  "io", "os", "table", "math", "coroutine"}
-if table.pack then
+                 
+-- modules added subsequently by Lua 5.2 and 5.3...
+if _G.bit32 then
     standalone_package_loaded.bit32 = true
 end
+if _G.utf8 then
+    standalone_package_loaded.utf8 = true
+end
+
 package.standalone_package_loaded = standalone_package_loaded
 
 -- If you're targeting another lua executable, add bit32 or whatever.
@@ -298,7 +304,7 @@ local function find_requires(sourcepath)
     local requires = {}
     local state = "none"
     local candidate_module
-    local lua52 = _VERSION:match '5%.2$'
+    local lua52 = not _VERSION:match '5%.1$'
 
     for line in f:lines() do
     if line:match("^%s*$") then

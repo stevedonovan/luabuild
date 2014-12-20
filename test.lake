@@ -1,5 +1,7 @@
-
-local name = NAME or 'lua52'
+local name = NAME
+if not name then 
+    name  =  LUA53 and 'lua53' or 'lua52'
+end
 local testfile = name..'.tests'
 local f,err = io.open(testfile)
 if not f then quit(err) end
