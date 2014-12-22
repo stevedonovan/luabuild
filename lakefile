@@ -441,11 +441,11 @@ end
 if config.readline == 'linenoise' and not WINDOWS then
     local linenoise = c.library {LIBDIR..'linenoiselib',src='linenoise',base='linenoise'}
     append(libs,linenoise)
-    local noisedir = '../linenoise'
-    if build53 then
-        noisedir = '../'..noisedir
-    end
-    incdir = (incdir or '')..' '..noisedir
+--~     local noisedir = '../linenoise'
+--~     if build53 then
+--~         noisedir = '../'..noisedir
+--~     end
+    incdir = (incdir or '')..' ./linenoise'
 end
 
 local prog,llua = c.program{BINDIR..name,
