@@ -1091,9 +1091,9 @@ end
 
 local function rebase (deps,base)
     if base then
-        for i = 1,#deps do
+        for i = 1,#deps do if not deps[i]:match '^[%./\\]' then
             deps[i] = join(base,deps[i])
-        end
+        end end
     end
     return deps
 end
