@@ -87,7 +87,7 @@ end
 file = {ext='*'}
 COPY = choose(Windows,'copy','cp')
 file.compile = '$(COPY) $(DEPENDS) $(TARGET)'
-
+file.M32 = ''
 
 if Windows then
     QUIET_CMD = '> nul'
