@@ -26,6 +26,8 @@ set LAKE="%LAKE%"
 if %errorlevel% equ 0 set LAKE=call %LAKE%
 :go
 rem and go!
+if "%1" == "LUA53=1" (set LAKE=%LAKE% LUA53=1)
+if defined LUA53 (set LAKE=%LAKE% LUA53=1)
 %LAKE% %*
 rem can now install the rest
 if %errorlevel% equ 0 (

@@ -1,9 +1,7 @@
 --- Lake script to install script wrappers in bin
 local exec, join = utils.execute, path.join
 
-print(#arg)
-
-if arg[1] then
+if arg[1] or LUA53 then
     lua = 'lua53'
     soar = 'soar53'
     print 'installing Lua 5.3'

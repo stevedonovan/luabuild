@@ -87,7 +87,7 @@ end
 file = {ext='*'}
 COPY = choose(Windows,'copy','cp')
 file.compile = '$(COPY) $(DEPENDS) $(TARGET)'
-
+file.M32 = ''
 
 if Windows then
     QUIET_CMD = '> nul'
@@ -1091,9 +1091,9 @@ end
 
 local function rebase (deps,base)
     if base then
-        for i = 1,#deps do
+        for i = 1,#deps do if not deps[i]:match '^[%./\\]' then
             deps[i] = join(base,deps[i])
-        end
+        end end
     end
     return deps
 end
