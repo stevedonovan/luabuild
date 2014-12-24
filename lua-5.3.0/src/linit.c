@@ -29,14 +29,14 @@
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base},
   {"table",luaopen_table},
-{"math",luaopen_math},
-{"debug",luaopen_debug},
-{"utf8",luaopen_utf8},
-{"coroutine",luaopen_coroutine},
-{"string",luaopen_string},
-{"package",luaopen_package},
 {"os",luaopen_os},
+{"string",luaopen_string},
+{"math",luaopen_math},
+{"coroutine",luaopen_coroutine},
+{"package",luaopen_package},
 {"io",luaopen_io},
+{"utf8",luaopen_utf8},
+{"debug",luaopen_debug},
   {NULL, NULL}
 };
 
