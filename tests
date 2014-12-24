@@ -16,7 +16,7 @@ then
     L53=''
     L='lua52'
 else
-    L53='L53=1'
+    L53='LUA53=1'
     L='lua53'
 fi
 
