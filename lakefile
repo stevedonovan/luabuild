@@ -378,6 +378,7 @@ function luabuild.library (spec)
     end
     spec.lang = nil
     spec[1] = LIBDIR..spec[1]
+    spec.odir = VERSION
     spec.args = ARGS
     return _G[lang].library(spec)
 end
