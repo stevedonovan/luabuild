@@ -11,7 +11,7 @@ do
     shift
 done
 
-if [ -z LUA53 ]
+if [[ $LUA53 == "" ]]
 then
     L53=''
     L='lua52'

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 LUA="lua"
 CC="gcc"
 
@@ -11,7 +11,7 @@ do
     shift
 done
 
-if [ -z LUA53 ]
+if [[ $LUA53 == "" ]]
 then
    SOURCE='lua-5.2.2'
    LUAVS=''

@@ -13,7 +13,7 @@ local append,join,exists = table.insert,path.join,path.exists
 -- for our purposes, the distinction is between Lua 5.1 and 5.2, 5.3
 local lua52 = not _VERSION:match '5.1'
 local quote = path.quote
-local build53 = LUA53 ~= nil
+local build53 = (LUA53 or os.getenv'LUA53') ~= nil
 
 if not build53 then
     SRC_DIR = "lua-5.2.2"
