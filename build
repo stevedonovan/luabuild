@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 LUA="lua"
 CC="gcc"
 
-while [ $# -gt 0 ]
+while test $# -gt 0
 do
     case "$1" in
         (*=*) eval $1;;
@@ -11,7 +11,7 @@ do
     shift
 done
 
-if [[ $LUA53 == "" ]]
+if test -z $LUA53
 then
    SOURCE='lua-5.2.2'
    LUAVS=''
@@ -55,15 +55,16 @@ else # have to bootstrap!
              "Darwin" ) PLAT=macosx;;
              *            ) PLAT=posix;;
         esac
-        pushd $SOURCE
+        HERE=$PWD
+        cd $SOURCE
         if ! make $PLAT
         then
             echo "bootstrap build borked"
             exit
         fi
         rm lua.o loadlib.o
-        popd
-        . setpath
+        cd $HERE
+        sh setpath
         LUA=luaboot
     fi
 fi
