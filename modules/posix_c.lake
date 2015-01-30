@@ -9,8 +9,8 @@ if PLAT=='Linux' then
     libs = libs .. 'rt'
 end
 
-cfg.HAVE_SYS_STATVS_H = find.include_path 'sys/statvfs.h' ~= nil
-cfg.HAVE_STATVS = cfg.HAVE_SYS_STATVS_H ~= nil
+cfg.HAVE_SYS_STATVFS_H = find.include_path 'sys/statvfs.h' ~= nil
+cfg.HAVE_STATVFS = cfg.HAVE_SYS_STATVFS_H ~= nil
 
 luabuild.write_config_header('config.h',cfg)
 
