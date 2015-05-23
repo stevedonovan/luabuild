@@ -24,7 +24,7 @@ Lua C extensions are usually shipped with makefiles, which are designed to build
  * [winapi](https://github.com/stevedonovan/winapi) Minimal Windows API
  * [ltcltk](http://www.tset.de/ltcltk/) Binding to Tcl/Tk
  * [LuaSQLite3](http://lua.sqlite.org/index.cgi/index)
- * [lua-linenoise](https:/github.com/hoelzro/lua-linenoise)
+ * [lua-linenoise](https://github.com/hoelzro/lua-linenoise)
 
  These are all all Lua 5.2 compatible, which required some extra (but necessary) work. Some of these (luaposix and winapi) are very platform-dependent; ltcltk could be in principle built on Windows, but Tcl/Tk is an awkward dependency on that platform. I don't claim that these modules represent some kind of ideal extended core, simply that they are (a) widely used and (b) small enough to link in statically.  'Small enough' is a tough requirement when contemplating GUI toolkits in particular, because even the _bindings_ to common cross-platform kits like wxWidgets and Qt get rather large.
 
@@ -204,7 +204,7 @@ Adapting luabuild for Lua 5.1.4 would be straightforward, although already this 
 
 There are of course limitations; it's unreasonable to try capture every possible module that people might need to link statically, and that role will (hopefully) be taken over by LuaDist, which is dedicated to tracking and building all the important Lua modules.  (In particular, your favourite GUI toolkit is unlikely to be ever supported by luabuild.)
 
-However, a side-effect of this project has been the successful porting of a number of key projeccts to Lua 5.2, and I'll continue to port any small modules that seem to be useful for embedding purposes.
+However, a side-effect of this project has been the successful porting of a number of key projects to Lua 5.2, and I'll continue to port any small modules that seem to be useful for embedding purposes.
 
 Lua is famous for the small size of its core, and so it isn't surprising that most of the size of a packed Lua application is the Lua sources included. As an optimization, it would be good to include a source code shrinker (aka 'minimizer') like [LuaSrcDiet](http://code.google.com/p/luasrcdiet/) in luabuild. But usually you would want to distribute programs as compressed files anyway (`ldoc.exe` in the above example goes down to 150K using `zip`).
 
