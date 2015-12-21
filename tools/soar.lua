@@ -148,7 +148,11 @@ function soar (lua, infile, manifest, outfile)
     function STANDALONE_LUA() end
     ]])
 
-    for mod,filename in pairs(sources) do
+    local sorted_sources = {}
+    for mod in pairs(sources) do tinsert(sorted_sources, mod) end
+    table.sort(sorted_sources)
+    for _,mod in ipairs(sorted_sources) do
+    local filename = sources[mod]
     if type(filename) == 'string' then -- i.e. not explicitly excluded
         out:write("\n----------------- begin ", mod)
         if not hide_filenames then
